@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen Share - Real-time Screen Sharing</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDK for cross-device streaming -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1><i class="fas fa-desktop"></i> Screen Share</h1>
+                    <p>Share your screen in real-time with others</p>
+                </div>
+                <div class="view-controls">
+                    <button id="desktopViewBtn" class="view-btn active" title="Desktop View">
+                        <i class="fas fa-desktop"></i>
+                        <span>Desktop</span>
+                    </button>
+                    <button id="mobileViewBtn" class="view-btn" title="Mobile View">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>Mobile</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="video-container">
+                <video id="screenVideo" autoplay muted playsinline></video>
+                <div id="placeholder" class="video-placeholder">
+                    <i class="fas fa-desktop"></i>
+                    <h3>Ready to share your screen?</h3>
+                    <p>Click the button below to start screen sharing</p>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="startBtn" class="btn btn-primary">
+                    <i class="fas fa-play"></i>
+                    Start Sharing
+                </button>
+                <button id="cropBtn" class="btn btn-warning">
+                    <i class="fas fa-crop"></i>
+                    Crop Area
+                </button>
+                <button id="sectionBtn" class="btn btn-info">
+                    <i class="fas fa-vector-square"></i>
+                    Select Section
+                </button>
+                <button id="pauseBtn" class="btn btn-warning" disabled>
+                    <i class="fas fa-pause"></i>
+                    Pause
+                </button>
+                <button id="stopBtn" class="btn btn-danger" disabled>
+                    <i class="fas fa-stop"></i>
+                    Stop Sharing
+                </button>
+                <button id="fullscreenBtn" class="btn btn-secondary" disabled>
+                    <i class="fas fa-expand"></i>
+                    Fullscreen
+                </button>
+                <button id="viewVideoBtn" class="btn btn-info" onclick="window.open('viewvideo.html', '_blank')">
+                    <i class="fas fa-video"></i>
+                    View Video
+                </button>
+            </div>
+
+            <div class="info-panel">
+                <div class="info-item">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Status: <span id="status">Ready</span></span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-users"></i>
+                    <span>Viewers: <span id="viewerCount">0</span></span>
+                </div>
+            </div>
+
+            <div class="features">
+                <h3>Features</h3>
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <i class="fas fa-shield-alt"></i>
+                        <h4>Secure</h4>
+                        <p>End-to-end encrypted screen sharing</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-bolt"></i>
+                        <h4>Real-time</h4>
+                        <p>Low latency streaming technology</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-mobile-alt"></i>
+                        <h4>Cross-platform</h4>
+                        <p>Works on all modern browsers</p>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-cog"></i>
+                        <h4>Easy to use</h4>
+                        <p>One-click screen sharing</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 Screen Share. Built with WebRTC technology.</p>
+        </footer>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <!-- Crop Selection Overlay -->
+    <div id="cropOverlay" class="crop-overlay">
+        <div class="crop-instructions">
+            <h3><i class="fas fa-crop"></i> Select Area to Share</h3>
+            <p>Click and drag to select the area you want to share</p>
+            <div class="crop-controls">
+                <div class="crop-size-controls">
+                    <button id="increaseCropWidth" class="btn btn-sm btn-outline">
+                        <i class="fas fa-arrows-alt-h"></i> +Width
+                    </button>
+                    <button id="decreaseCropWidth" class="btn btn-sm btn-outline">
+                        <i class="fas fa-compress-arrows-alt"></i> -Width
+                    </button>
+                    <button id="increaseCropHeight" class="btn btn-sm btn-outline">
+                        <i class="fas fa-arrows-alt-v"></i> +Height
+                    </button>
+                    <button id="decreaseCropHeight" class="btn btn-sm btn-outline">
+                        <i class="fas fa-compress-arrows-alt"></i> -Height
+                    </button>
+                </div>
+                <div class="crop-actions">
+                    <button id="confirmCrop" class="btn btn-success">
+                        <i class="fas fa-check"></i> Confirm Selection
+                    </button>
+                    <button id="cancelCrop" class="btn btn-danger">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="cropSelection" class="crop-selection">
+            <div class="crop-resize-handle nw"></div>
+            <div class="crop-resize-handle ne"></div>
+            <div class="crop-resize-handle sw"></div>
+            <div class="crop-resize-handle se"></div>
+            <div class="crop-resize-handle n"></div>
+            <div class="crop-resize-handle s"></div>
+            <div class="crop-resize-handle e"></div>
+            <div class="crop-resize-handle w"></div>
+        </div>
+        <div id="cropInfo" class="crop-info">
+            <span id="cropDimensions">0 x 0</span>
+        </div>
+    </div>
+
+    <!-- Section Selection Overlay -->
+    <div id="sectionOverlay" class="section-overlay">
+        <div class="section-instructions">
+            <h3><i class="fas fa-vector-square"></i> Select Sharing Section</h3>
+            <p>Click and drag to create a section, then use resize handles to adjust</p>
+            <div class="section-controls">
+                <div class="section-size-controls">
+                    <button id="increaseWidth" class="btn btn-sm btn-outline">
+                        <i class="fas fa-arrows-alt-h"></i> +Width
+                    </button>
+                    <button id="decreaseWidth" class="btn btn-sm btn-outline">
+                        <i class="fas fa-compress-arrows-alt"></i> -Width
+                    </button>
+                    <button id="increaseHeight" class="btn btn-sm btn-outline">
+                        <i class="fas fa-arrows-alt-v"></i> +Height
+                    </button>
+                    <button id="decreaseHeight" class="btn btn-sm btn-outline">
+                        <i class="fas fa-compress-arrows-alt"></i> -Height
+                    </button>
+                </div>
+                <div class="section-actions">
+                    <button id="confirmSection" class="btn btn-success">
+                        <i class="fas fa-check"></i> Confirm Section
+                    </button>
+                    <button id="cancelSection" class="btn btn-danger">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="sectionSelection" class="section-selection">
+            <div class="resize-handle nw"></div>
+            <div class="resize-handle ne"></div>
+            <div class="resize-handle sw"></div>
+            <div class="resize-handle se"></div>
+            <div class="resize-handle n"></div>
+            <div class="resize-handle s"></div>
+            <div class="resize-handle e"></div>
+            <div class="resize-handle w"></div>
+        </div>
+        <div id="sectionInfo" class="section-info">
+            <span id="sectionDimensions">0 x 0</span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

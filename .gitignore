@@ -1,0 +1,19 @@
+# Firebase config (optional - you can commit it if you want)
+# firebase-config.js
+
+# Node modules (if you add any)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+

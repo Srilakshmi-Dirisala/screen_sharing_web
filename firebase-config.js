@@ -12,7 +12,21 @@ const FIREBASE_CONFIG = {
   appId: "1:1027496688952:web:793d8e7a40080809ba55cd",
   measurementId: "G-GEJ3S3Q22D"
 };
-// Helper function to check if Firebase is configured
+
+// Check if Firebase is already initialized to avoid duplicate initialization
+if (typeof firebase === 'undefined') {
+    console.error('Firebase SDK not loaded. Make sure to include Firebase scripts before this file.');
+} else if (firebase.apps.length === 0) {
+    try {
+        // Initialize Firebase
+        firebase.initializeApp(FIREBASE_CONFIG);
+        console.log('Firebase initialized successfully');
+    } catch (error) {
+        console.error('Error initializing Firebase:', error);
+    }
+}
+
+// Function to check if Firebase is properly configured
 function isFirebaseConfigured() {
     return FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY_HERE" && 
            FIREBASE_CONFIG.databaseURL !== "YOUR_DATABASE_URL_HERE";

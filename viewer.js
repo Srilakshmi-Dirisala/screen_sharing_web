@@ -4,7 +4,7 @@ class VideoViewer {
         this.statusText = document.getElementById('status');
         this.peerConnection = null;
         this.db = null;
-        this.roomId = 'public-room';
+        this.roomId = 'live-stream-room';
         this.peerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
         this.broadcasterId = null;
         this.isConnected = false;

@@ -890,7 +890,7 @@ class ScreenShareApp {
         this.isSharing = false;
         this.viewerCount = 0;
         this.db = null;
-        this.roomId = 'default-room';
+        this.roomId = 'live-stream-room';
         this.peerId = 'broadcaster_' + Math.random().toString(36).substr(2, 9);
         this.isPaused = false;
         

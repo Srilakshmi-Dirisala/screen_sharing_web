@@ -1098,17 +1098,12 @@ class ScreenShareApp {
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
                     console.log('🧊 Sending ICE candidate to:', viewerId);
-                    //this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
-                    // this.db.ref(`rooms/${this.roomId}/candidates/${viewerId}`).push({
-                    //     candidate: event.candidate.toJSON(),
-                    //     from: this.peerId,
-                    //     to: viewerId,
-                    //     timestamp: Date.now()
-                    // });
-                    this.db.ref(`rooms/${this.roomId}/candidates/${this.peerId}`).push({
+                    // Write ICE to a shared collection with explicit routing
+                    this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
                         candidate: event.candidate.toJSON(),
                         from: this.peerId,
-                        to: viewerId
+                        to: viewerId,
+                        timestamp: Date.now()
                     });
 
                 }
@@ -1128,35 +1123,18 @@ class ScreenShareApp {
                 }
             };
 
-            // Create offer
-            // const offer = await pc.createOffer();
-            // await pc.setLocalDescription(offer);
+            // Create offer and send it to this specific viewer
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
 
-            // // Send offer
-            // await this.db.ref(`rooms/${this.roomId}/offers`).push({
-            //     offer: {
-            //         type: offer.type,
-            //         sdp: offer.sdp
-            //     },
-            //     from: this.peerId,
-            //     to: viewerId,
-            //     timestamp: Date.now()
-            // });
-
-            // console.log('📤 Offer sent to:', viewerId);
-const offer = await pc.createOffer();
-await pc.setLocalDescription(offer);
-
-console.log("🟡 About to write offer to Firebase...");
-await this.db.ref(`rooms/${this.roomId}/broadcaster`).set({
-  offer: { type: offer.type, sdp: offer.sdp },
-  from: this.peerId,
-  timestamp: Date.now()
-});
-console.log("🟢 Offer successfully written (or attempted)!");
-
-
-console.log('📤 Offer stored in Firebase for room:', this.roomId);
+            console.log('📤 Writing offer for viewer to Firebase:', viewerId);
+            await this.db.ref(`rooms/${this.roomId}/offers/${viewerId}`).push({
+                offer: { type: offer.type, sdp: offer.sdp },
+                from: this.peerId,
+                to: viewerId,
+                timestamp: Date.now()
+            });
+            console.log('🟢 Offer stored under offers/', viewerId);
 
         } catch (error) {
             console.error('❌ Error connecting to viewer:', error);
@@ -1166,8 +1144,12 @@ console.log('📤 Offer stored in Firebase for room:', this.roomId);
     async handleAnswer(data) {
         try {
             const pc = this.peerConnections.get(data.from);
-            if (pc && data.answer) {
-                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            if (pc && (data.sdp || (data.answer && data.answer.sdp))) {
+                // Support both flat sdp and nested answer.sdp
+                const answerDesc = data.sdp
+                    ? { type: 'answer', sdp: data.sdp }
+                    : { type: 'answer', sdp: data.answer.sdp };
+                await pc.setRemoteDescription(new RTCSessionDescription(answerDesc));
                 console.log('✅ Answer processed from:', data.from);
             }
         } catch (error) {

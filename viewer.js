@@ -118,6 +118,21 @@ this.peerConnection.oniceconnectionstatechange = () => {
 };
 
 // Log ALL ICE candidates to see what's being tried
+// this.peerConnection.onicecandidate = (event) => {
+//     if (event.candidate) {
+//         const c = event.candidate;
+//         console.log('🧊 ICE Candidate Type:', c.type, 'Protocol:', c.protocol, 'Address:', c.address);
+        
+//         // Send to broadcaster
+//         this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
+//             candidate: c.toJSON(),
+//             from: this.peerId,
+//             to: this.broadcasterId,
+//             timestamp: Date.now()
+//         });
+//     }
+// };
+//             console.log(`🔍 Connection health - State: ${connectionState}, ICE: ${iceState}`);
 this.peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
         const c = event.candidate;
@@ -132,7 +147,6 @@ this.peerConnection.onicecandidate = (event) => {
         });
     }
 };
-            console.log(`🔍 Connection health - State: ${connectionState}, ICE: ${iceState}`);
 
             // Check if we need to restart the connection
             if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {

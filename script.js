@@ -1129,21 +1129,35 @@ class ScreenShareApp {
             };
 
             // Create offer
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
+            // const offer = await pc.createOffer();
+            // await pc.setLocalDescription(offer);
 
-            // Send offer
-            await this.db.ref(`rooms/${this.roomId}/offers`).push({
-                offer: {
-                    type: offer.type,
-                    sdp: offer.sdp
-                },
-                from: this.peerId,
-                to: viewerId,
-                timestamp: Date.now()
-            });
+            // // Send offer
+            // await this.db.ref(`rooms/${this.roomId}/offers`).push({
+            //     offer: {
+            //         type: offer.type,
+            //         sdp: offer.sdp
+            //     },
+            //     from: this.peerId,
+            //     to: viewerId,
+            //     timestamp: Date.now()
+            // });
 
-            console.log('📤 Offer sent to:', viewerId);
+            // console.log('📤 Offer sent to:', viewerId);
+const offer = await pc.createOffer();
+await pc.setLocalDescription(offer);
+
+// ✅ Write the offer where the viewer expects it
+await this.db.ref(`rooms/${this.roomId}/broadcaster`).set({
+  offer: {
+    type: offer.type,
+    sdp: offer.sdp
+  },
+  from: this.peerId,
+  timestamp: Date.now()
+});
+
+console.log('📤 Offer stored in Firebase for room:', this.roomId);
 
         } catch (error) {
             console.error('❌ Error connecting to viewer:', error);

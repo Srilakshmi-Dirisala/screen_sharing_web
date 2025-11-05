@@ -18,38 +18,48 @@ class VideoViewer {
         this.iceServers = [];
         
         // Enhanced WebRTC configuration for cross-device compatibility
+        // this.peerConnectionConfig = {
+        //     iceServers: [
+        //         // Public STUN servers
+        //         { urls: 'stun:stun.l.google.com:19302' },
+        //         { urls: 'stun:stun1.l.google.com:19302' },
+        //         { urls: 'stun:stun2.l.google.com:19302' },
+        //         { urls: 'stun:stun3.l.google.com:19302' },
+        //         { urls: 'stun:stun4.l.google.com:19302' },
+        //         { urls: 'stun:stun.stunprotocol.org:3478' },
+        //         { urls: 'stun:stun.voipstunt.com:3478' },
+        //         { urls: 'stun:stun.ekiga.net' },
+        //         { urls: 'stun:stun.ideasip.com' }
+        //     ],
+        //     // Try both relay and non-relay candidates
+        //     iceTransportPolicy: 'all',
+        //     // Optimize bundle size
+        //     bundlePolicy: 'max-bundle',
+        //     // Reduce number of candidates
+        //     rtcpMuxPolicy: 'require',
+        //     // Modern SDP format
+        //     sdpSemantics: 'unified-plan',
+        //     // Increased pool size for better connectivity
+        //     iceCandidatePoolSize: 10,
+        //     // Additional reliability settings
+        //     iceCandidatePooling: true,
+        //     iceCandidatePoolSize: 10,
+        //     // Timeout settings
+        //     iceConnectionTimeout: 10000,
+        //     // ICE restart policy
+        //     iceRestart: true
+        // };
         this.peerConnectionConfig = {
-            iceServers: [
-                // Public STUN servers
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' },
-                { urls: 'stun:stun.stunprotocol.org:3478' },
-                { urls: 'stun:stun.voipstunt.com:3478' },
-                { urls: 'stun:stun.ekiga.net' },
-                { urls: 'stun:stun.ideasip.com' }
-            ],
-            // Try both relay and non-relay candidates
-            iceTransportPolicy: 'all',
-            // Optimize bundle size
-            bundlePolicy: 'max-bundle',
-            // Reduce number of candidates
-            rtcpMuxPolicy: 'require',
-            // Modern SDP format
-            sdpSemantics: 'unified-plan',
-            // Increased pool size for better connectivity
-            iceCandidatePoolSize: 10,
-            // Additional reliability settings
-            iceCandidatePooling: true,
-            iceCandidatePoolSize: 10,
-            // Timeout settings
-            iceConnectionTimeout: 10000,
-            // ICE restart policy
-            iceRestart: true
-        };
-        
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    {
+      urls: "turn:relay1.expressturn.com:3478",
+      username: "efree",
+      credential: "free"
+    }
+  ]
+};
+
         // Initialize with public TURN servers (for testing)
         this.initializeTurnServers().then(() => {
             console.log('✅ TURN servers initialized');

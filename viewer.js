@@ -4,41 +4,140 @@ class VideoViewer {
         this.statusText = document.getElementById('status');
         this.peerConnection = null;
         this.db = null;
-        this.roomId = 'public-room'; // Fixed public room ID
+        this.roomId = 'public-room';
         this.peerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
         this.broadcasterId = null;
         this.isConnected = false;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.reconnectDelay = 1000; // Start with 1 second delay
+        
+        // Initialize connection settings
+        this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000; // Start with 1 second
         this.iceServers = [];
         
-        // Initialize with default STUN servers first
+        // Enhanced WebRTC configuration for cross-device compatibility
         this.peerConnectionConfig = {
             iceServers: [
+                // Public STUN servers
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:stun3.l.google.com:19302' },
                 { urls: 'stun:stun4.l.google.com:19302' },
                 { urls: 'stun:stun.stunprotocol.org:3478' },
-                { urls: 'stun:stun.voipstunt.com:3478' }
+                { urls: 'stun:stun.voipstunt.com:3478' },
+                { urls: 'stun:stun.ekiga.net' },
+                { urls: 'stun:stun.ideasip.com' }
             ],
+            // Try both relay and non-relay candidates
             iceTransportPolicy: 'all',
+            // Optimize bundle size
             bundlePolicy: 'max-bundle',
+            // Reduce number of candidates
             rtcpMuxPolicy: 'require',
+            // Modern SDP format
             sdpSemantics: 'unified-plan',
-            iceCandidatePoolSize: 5
+            // Increased pool size for better connectivity
+            iceCandidatePoolSize: 10,
+            // Additional reliability settings
+            iceCandidatePooling: true,
+            iceCandidatePoolSize: 10,
+            // Timeout settings
+            iceConnectionTimeout: 10000,
+            // ICE restart policy
+            iceRestart: true
         };
         
         // Initialize with public TURN servers (for testing)
-        this.initializeTurnServers();
-        this.initFirebase();
+        this.initializeTurnServers().then(() => {
+            console.log('✅ TURN servers initialized');
+            this.initFirebase();
+        }).catch(error => {
+            console.error('❌ Failed to initialize TURN servers:', error);
+            // Continue with Firebase even if TURN servers fail
+            this.initFirebase();
+        });
     }
     
+    async checkConnectionHealth() {
+        console.log('🔍 Checking connection health...');
+        
+        // Check if peerConnection exists
+        if (!this.peerConnection) {
+            console.log('ℹ️ No active peer connection, attempting to reconnect...');
+            await this.attemptReconnect();
+            return;
+        }
+        
+        if (!this.isConnected) {
+            console.log('⚠️ Connection health check: Not connected, checking state...');
+            if (this.peerConnection.connectionState === 'connected') {
+                this.isConnected = true;
+                console.log('✅ Connection is now active');
+                return;
+            } else {
+                console.log('🔄 Attempting to reconnect...');
+                await this.handleDisconnection();
+                return;
+            }
+        }
+
+        try {
+            const connectionState = this.peerConnection?.connectionState || 'no-connection';
+            const iceState = this.peerConnection?.iceConnectionState || 'no-ice';
+            
+            console.log(`🔍 Connection health - State: ${connectionState}, ICE: ${iceState}`);
+
+            // Check if we need to restart the connection
+            if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {
+                console.log('🔌 Connection issue detected, attempting to recover...');
+                await this.handleDisconnection();
+            }
+        } catch (error) {
+            console.error('❌ Error checking connection health:', error);
+        }
+    }
+
+    handleNetworkChange(event) {
+        const isOnline = navigator.onLine;
+        console.log(`🌐 Network status changed: ${isOnline ? 'Online' : 'Offline'}`);
+        
+        if (isOnline) {
+            this.updateStatus('reconnecting', 'Network restored, reconnecting...');
+            this.reconnectAttempts = 0; // Reset reconnection attempts
+            this.handleDisconnection();
+        } else {
+            this.updateStatus('error', 'Network connection lost. Waiting for connection...');
+        }
+    }
+
+    async attemptReconnect() {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            this.reconnectAttempts = 0; // Reset after max attempts
+        }
+        await this.handleDisconnection();
+    }
+
     async initializeTurnServers() {
-        // Public TURN servers (for testing only, in production use your own TURN server)
+        console.log('🔄 Initializing TURN servers...');
+        // Public TURN/STUN servers with fallbacks
         const turnServers = [
+            // Google's public STUN servers
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            
+            // Additional public STUN servers
+            { urls: 'stun:stun.stunprotocol.org:3478' },
+            { urls: 'stun:stun.voipstunt.com:3478' },
+            { urls: 'stun:stun.ekiga.net' },
+            { urls: 'stun:stun.ideasip.com' },
+            
+            // TURN servers (for NAT traversal)
             {
                 urls: [
                     'turn:numb.viagenie.ca:3478?transport=udp',
@@ -87,52 +186,147 @@ class VideoViewer {
                     if (snapshot.val() === true) {
                         console.log('🌐 Connected to Firebase');
                         this.updateStatus('connecting', 'Connecting to stream...');
-                        this.init();
+                        
+                        // Add a small delay to ensure everything is ready
+                        setTimeout(async () => {
+                            try {
+                                await this.init();
+                            } catch (error) {
+                                console.error('❌ Error initializing viewer:', error);
+                                this.updateStatus('error', 'Failed to initialize. Please refresh the page.');
+                            }
+                        }, 500);
+                        
+                        // Set up periodic connection health check
+                        this.connectionCheckInterval = setInterval(() => {
+                            this.checkConnectionHealth();
+                        }, 5000);
                     } else {
                         console.log('⚠️ Firebase disconnected');
                         this.updateStatus('error', 'Disconnected from server. Reconnecting...');
                         this.handleDisconnection();
                     }
                 });
+                
+                // Monitor network status
+                window.addEventListener('online', this.handleNetworkChange.bind(this));
+                window.addEventListener('offline', this.handleNetworkChange.bind(this));
+                
             } else {
                 throw new Error('Firebase configuration not found');
             }
         } catch (error) {
             console.error('❌ Firebase initialization failed:', error);
-            this.showError('Failed to connect to streaming service. Please refresh the page.');
+            this.showError('Failed to connect to streaming service. Please check your internet connection.');
             this.attemptReconnect();
         }
     }
 
     async init() {
-        this.updateStatus('waiting', 'Connecting to room...');
-        console.log('👤 Viewer ID:', this.peerId);
-        
-        // Register as viewer
-        await this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`).set({
-            id: this.peerId,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-
-        // Remove viewer on disconnect
-        this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`).onDisconnect().remove();
-
-        // Listen for broadcaster
-        const broadcasterRef = this.db.ref(`rooms/${this.roomId}/broadcaster`);
-        broadcasterRef.on('value', async (snapshot) => {
-            const broadcaster = snapshot.val();
-            if (broadcaster && broadcaster.id) {
-                console.log('📡 Broadcaster found:', broadcaster.id);
-                this.broadcasterId = broadcaster.id;
-                this.updateStatus('waiting', 'Waiting for stream...');
-                this.listenForOffers();
-            } else {
-                console.log('⏳ No broadcaster in room');
-                this.updateStatus('waiting', 'Waiting for broadcaster to start sharing...');
+        try {
+            this.updateStatus('waiting', 'Connecting to room...');
+            console.log('👤 Viewer ID:', this.peerId);
+            console.log('🔧 Initializing peer connection...');
+            // Clean up any existing connection
+            if (this.peerConnection) {
+                console.log('♻️ Cleaning up existing peer connection');
+                this.peerConnection.close();
+                this.peerConnection = null;
             }
-        });
+            
+            // Create new peer connection
+            this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
+            console.log('✅ Peer connection created');
+            
+            // Set up connection state change handler
+            this.peerConnection.onconnectionstatechange = () => {
+                console.log('🔌 Peer connection state changed:', this.peerConnection.connectionState);
+                
+                switch(this.peerConnection.connectionState) {
+                    case 'connected':
+                        this.updateStatus('connected', 'Connected to stream');
+                        this.isConnected = true;
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                        this.updateStatus('error', 'Connection lost, reconnecting...');
+                        this.isConnected = false;
+                        this.handleDisconnection();
+                        break;
+                    case 'closed':
+                        this.isConnected = false;
+                        break;
+                }
+            };
+            
+            // Set up ICE connection state change handler
+            this.peerConnection.oniceconnectionstatechange = () => {
+                console.log('🧊 ICE connection state:', this.peerConnection.iceConnectionState);
+                
+                switch(this.peerConnection.iceConnectionState) {
+                    case 'connected':
+                        this.updateStatus('connected', 'Stream connected');
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                        this.updateStatus('reconnecting', 'Reconnecting to stream...');
+                        this.handleDisconnection();
+                        break;
+                }
+            };
+            
+            // Set up track handler for incoming media
+            this.peerConnection.ontrack = (event) => {
+                console.log('🎥 Received track:', event.track.kind);
+                if (event.streams && event.streams[0]) {
+                    this.handleStream(event.streams[0]);
+                }
+            };
+        }
+        catch (error) {
+            console.error('❌ Error initializing viewer:', error);
+            this.updateStatus('error', 'Failed to initialize. Please refresh the page.');
+        }
+        try {
+            // Register as viewer
+            const viewerRef = this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`);
+            
+            // Set viewer data
+            await viewerRef.set({
+                id: this.peerId,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+            
+            console.log('✅ Successfully registered as viewer');
+            
+            // Set up cleanup on disconnect
+            await viewerRef.onDisconnect().remove()
+                .then(() => console.log('✅ Cleanup on disconnect configured'))
+                .catch(err => console.error('❌ Failed to set up cleanup on disconnect:', err));
+                
+            // Listen for broadcaster
+            console.log('👂 Listening for broadcaster in room:', this.roomId);
+            const broadcasterRef = this.db.ref(`rooms/${this.roomId}/broadcaster`);
+            broadcasterRef.on('value', async (snapshot) => {
+                console.log('📡 Broadcaster ref update:', snapshot.val());
+                const broadcaster = snapshot.val();
+                if (broadcaster && broadcaster.id) {
+                    console.log('📡 Broadcaster found:', broadcaster.id);
+                    this.broadcasterId = broadcaster.id;
+                    this.updateStatus('waiting', 'Waiting for stream...');
+                    this.listenForOffers();
+                } else {
+                    console.log('⏳ No broadcaster in room');
+                    this.updateStatus('waiting', 'Waiting for broadcaster to start sharing...');
+                }
+            });
 
-        console.log('✅ Viewer initialized');
+            console.log('✅ Viewer initialized');
+        } catch (error) {
+            console.error('❌ Error initializing viewer:', error);
+            this.updateStatus('error', 'Failed to initialize. Please refresh the page.');
+        }
+        
     }
 
     listenForOffers() {
@@ -293,40 +487,82 @@ class VideoViewer {
         // Clean up existing connection
         if (this.peerConnection) {
             try {
-                this.peerConnection.ontrack = null;
-                this.peerConnection.onicecandidate = null;
-                this.peerConnection.oniceconnectionstatechange = null;
-                this.peerConnection.onicegatheringstatechange = null;
-                this.peerConnection.onsignalingstatechange = null;
-                this.peerConnection.onconnectionstatechange = null;
-                this.peerConnection.close();
+                // Clear all event handlers first
+                const pc = this.peerConnection;
+                pc.ontrack = null;
+                pc.onicecandidate = null;
+                pc.oniceconnectionstatechange = null;
+                pc.onicegatheringstatechange = null;
+                pc.onsignalingstatechange = null;
+                pc.onconnectionstatechange = null;
+                pc.onnegotiationneeded = null;
+                
+                // Close all transceivers
+                if (pc.getTransceivers) {
+                    pc.getTransceivers().forEach(transceiver => {
+                        try {
+                            transceiver.stop && transceiver.stop();
+                        } catch (e) {
+                            console.warn('Error stopping transceiver:', e);
+                        }
+                    });
+                }
+                
+                // Close the connection
+                pc.close();
+                console.log('✅ Peer connection closed cleanly');
             } catch (e) {
                 console.error('Error closing peer connection:', e);
+            } finally {
+                this.peerConnection = null;
             }
-            this.peerConnection = null;
         }
         
         // Update status
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+            const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000); // Max 30s delay
             this.reconnectAttempts++;
             
             console.log(`♻️ Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-            this.updateStatus('reconnecting', `Reconnecting in ${delay/1000} seconds...`);
+            this.updateStatus('reconnecting', `Reconnecting in ${Math.ceil(delay/1000)} seconds...`);
             
-            await new Promise(resolve => setTimeout(resolve, delay));
-            
-            try {
-                await this.init();
-                this.reconnectAttempts = 0; // Reset on successful reconnect
-            } catch (error) {
-                console.error('Reconnection failed:', error);
-                this.handleDisconnection(); // Try again
+            // Clear any existing reconnection timeout
+            if (this.reconnectTimeout) {
+                clearTimeout(this.reconnectTimeout);
             }
+            
+            this.reconnectTimeout = setTimeout(async () => {
+                try {
+                    await this.init();
+                    this.reconnectAttempts = 0; // Reset on successful reconnect
+                } catch (error) {
+                    console.error('Reconnection failed:', error);
+                    this.handleDisconnection(); // Try again
+                }
+            }, delay);
         } else {
             console.error('Max reconnection attempts reached');
             this.showError('Connection lost. Please check your internet connection and refresh the page.');
-            this.showError('Failed to reconnect after multiple attempts. Please refresh the page.');
+            
+            // Show retry button
+            const retryButton = document.createElement('button');
+            retryButton.textContent = 'Retry Connection';
+            retryButton.className = 'retry-button';
+            retryButton.onclick = () => {
+                this.reconnectAttempts = 0;
+                this.handleDisconnection();
+            };
+            
+            const errorContainer = document.querySelector('.error-container') || document.createElement('div');
+            errorContainer.className = 'error-container';
+            errorContainer.innerHTML = '';
+            errorContainer.appendChild(document.createTextNode('Failed to reconnect. '));
+            errorContainer.appendChild(retryButton);
+            
+            const statusBar = document.querySelector('.status-bar');
+            if (statusBar) {
+                statusBar.appendChild(errorContainer);
+            }
         }
     }
 

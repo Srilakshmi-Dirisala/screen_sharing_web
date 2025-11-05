@@ -12,20 +12,31 @@ class VideoViewer {
         
         this.peerConnectionConfig = {
             iceServers: [
+                // Google's public STUN servers
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' },
+                
+                // TURN servers for NAT traversal
                 { 
-                    urls: 'turn:numb.viagenie.ca',
+                    urls: 'turn:numb.viagenie.ca:3478',
                     username: 'webrtc@live.com',
-                    credential: 'muazkh'
+                    credential: 'muazkh',
+                    urls: 'turn:numb.viagenie.ca:3478?transport=udp',
+                    urls: 'turn:numb.viagenie.ca:3478?transport=tcp'
                 }
             ],
             iceTransportPolicy: 'all',
+            iceCandidatePoolSize: 10,
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 10
+            sdpSemantics: 'unified-plan',
+            encodedInsertableStreams: false
         };
+        
+        console.log('WebRTC Configuration:', JSON.stringify(this.peerConnectionConfig, null, 2));
         
         this.initFirebase();
     }
@@ -50,56 +61,89 @@ class VideoViewer {
     }
 
     async init() {
+        console.log('🔍 Initializing viewer...');
         this.updateStatus('waiting', 'Connecting to room...');
         console.log('👤 Viewer ID:', this.peerId);
         
-        // Register as viewer
-        await this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`).set({
-            id: this.peerId,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
+        try {
+            // Register as viewer
+            console.log('📝 Registering viewer in room:', this.roomId);
+            await this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`).set({
+                id: this.peerId,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+            console.log('✅ Successfully registered viewer');
 
-        // Remove viewer on disconnect
-        this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`).onDisconnect().remove();
+            // Remove viewer on disconnect
+            this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`).onDisconnect().remove()
+                .then(() => console.log('✅ Set up disconnect handler'))
+                .catch(err => console.error('❌ Failed to set up disconnect handler:', err));
+                
+            // Listen for broadcaster
+            this.listenForBroadcaster();
+            
+        } catch (error) {
+            console.error('❌ Failed to initialize viewer:', error);
+            this.showError('Failed to connect to the streaming service. Please refresh the page.');
+        }
+    }
 
-        // Listen for broadcaster
+    listenForBroadcaster() {
+        console.log('🔍 Looking for broadcaster...');
         const broadcasterRef = this.db.ref(`rooms/${this.roomId}/broadcaster`);
+        
         broadcasterRef.on('value', async (snapshot) => {
             const broadcaster = snapshot.val();
             if (broadcaster && broadcaster.id) {
                 console.log('📡 Broadcaster found:', broadcaster.id);
                 this.broadcasterId = broadcaster.id;
-                this.updateStatus('waiting', 'Waiting for stream...');
+                this.updateStatus('waiting', 'Broadcaster found. Waiting for stream...');
                 this.listenForOffers();
             } else {
-                console.log('⏳ No broadcaster in room');
+                console.log('⏳ No active broadcaster in room');
                 this.updateStatus('waiting', 'Waiting for broadcaster to start sharing...');
             }
+        }, (error) => {
+            console.error('❌ Error listening for broadcaster:', error);
+            this.showError('Failed to connect to the streaming service.');
         });
-
-        console.log('✅ Viewer initialized');
     }
 
     listenForOffers() {
-        // Listen for offers
+        console.log('👂 Listening for WebRTC offers...');
         const offersRef = this.db.ref(`rooms/${this.roomId}/offers`);
-        offersRef.on('child_added', async (snapshot) => {
+        
+        this.offersListener = offersRef.on('child_added', async (snapshot) => {
             const data = snapshot.val();
+            console.log('📨 Received offer data:', data);
+            
             if (data && data.to === this.peerId) {
-                console.log('📨 Received offer from broadcaster');
-                await this.handleOffer(data);
-                // Remove the offer after handling to prevent reuse
-                snapshot.ref.remove().catch(console.error);
+                console.log('✅ Offer is for this viewer');
+                try {
+                    await this.handleOffer(data);
+                    // Remove the offer after handling to prevent reuse
+                    await snapshot.ref.remove();
+                    console.log('✅ Removed processed offer');
+                } catch (error) {
+                    console.error('❌ Error processing offer:', error);
+                    this.showError('Failed to process the stream. Please refresh the page.');
+                }
+            } else if (data) {
+                console.log('⚠️ Offer is for another viewer:', data.to);
             }
         });
-
+        
         // Listen for ICE candidates
         const candidatesRef = this.db.ref(`rooms/${this.roomId}/iceCandidates`);
-        candidatesRef.on('child_added', async (snapshot) => {
+        this.candidatesListener = candidatesRef.on('child_added', async (snapshot) => {
             const data = snapshot.val();
             if (data && data.to === this.peerId && data.from === this.broadcasterId) {
                 console.log('🧊 Received ICE candidate from broadcaster');
-                await this.handleCandidate(data);
+                try {
+                    await this.handleCandidate(data);
+                } catch (error) {
+                    console.error('❌ Error handling ICE candidate:', error);
+                }
             }
         });
     }
@@ -110,21 +154,42 @@ class VideoViewer {
             
             // Close existing connection if any
             if (this.peerConnection) {
+                console.log('Closing existing peer connection');
                 this.peerConnection.ontrack = null;
                 this.peerConnection.onicecandidate = null;
                 this.peerConnection.oniceconnectionstatechange = null;
+                this.peerConnection.onconnectionstatechange = null;
+                this.peerConnection.onsignalingstatechange = null;
+                this.peerConnection.onnegotiationneeded = null;
                 this.peerConnection.close();
                 this.peerConnection = null;
             }
 
             // Create new connection with enhanced config
-            this.peerConnection = new RTCPeerConnection({
-                ...this.peerConnectionConfig,
-                sdpSemantics: 'unified-plan',  // Better for multiple streams
-                bundlePolicy: 'max-bundle',
-                rtcpMuxPolicy: 'require'
-            });
+            console.log('Creating new RTCPeerConnection');
+            this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
             
+            // Reset reconnection attempts on new connection
+            this.reconnectAttempts = 0;
+            
+            // Set up connection state monitoring
+            this.peerConnection.onconnectionstatechange = () => {
+                console.log('🔄 Peer connection state:', this.peerConnection.connectionState);
+                switch (this.peerConnection.connectionState) {
+                    case 'connected':
+                        this.updateStatus('connected', 'Connected to stream');
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                        this.updateStatus('warning', 'Connection lost, reconnecting...');
+                        this.handleDisconnection();
+                        break;
+                    case 'closed':
+                        this.updateStatus('disconnected', 'Connection closed');
+                        break;
+                }
+            };
+
             // Enhanced ICE candidate handling
             this.peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
@@ -338,8 +403,10 @@ class VideoViewer {
 
     showError(message) {
         console.error('Error:', message);
-        const placeholderTitle = document.getElementById('placeholderTitle');
-        const placeholderMessage = document.getElementById('placeholderMessage');
+        if (this.statusText) {
+            this.statusText.textContent = `Error: ${message}`;
+            this.statusText.className = 'status-error';
+        }
         
         if (this.videoPlaceholder) {
             this.videoPlaceholder.style.display = 'flex';

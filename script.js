@@ -9,7 +9,7 @@
 //         this.roomId = null;
 //         this.peerId = null;
 //         this.remotePeerId = null;
-        
+
 //         // WebRTC Configuration
 //         this.peerConnectionConfig = {
 //             iceServers: [
@@ -20,14 +20,14 @@
 //                 { urls: 'stun:stun4.l.google.com:19302' }
 //             ]
 //         };
-        
+
 //         this.isPaused = false;
-        
+
 //         this.initializeElements();
 //         this.bindEvents();
 //         this.updateUI();
 //         this.initFirebase();
-        
+
 //         // Generate unique peer ID
 //         this.peerId = 'peer_' + Math.random().toString(36).substr(2, 9);
 //     }
@@ -49,7 +49,7 @@
 //         this.pauseBtn.addEventListener('click', () => this.togglePause());
 //         this.stopBtn.addEventListener('click', () => this.stopScreenShare());
 //         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        
+
 //         document.addEventListener('fullscreenchange', () => this.handleFullscreenChange());
 //         document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
 //     }
@@ -62,7 +62,7 @@
 //                 }
 //                 this.db = firebase.database();
 //                 console.log('Firebase initialized for WebRTC signaling');
-                
+
 //                 // Set default room
 //                 this.roomId = 'default-room';
 //             } else {
@@ -79,7 +79,7 @@
 //         try {
 //             this.showNotification('Starting screen share...', 'info');
 //             this.updateStatus('Connecting...');
-            
+
 //             // Request screen capture
 //             this.mediaStream = await navigator.mediaDevices.getDisplayMedia({
 //                 video: {
@@ -116,7 +116,7 @@
 //             this.updateUI();
 //             this.updateStatus('Sharing');
 //             this.showNotification('Screen sharing started! Share the viewer link.', 'success');
-            
+
 //             // Monitor viewers
 //             this.monitorViewers();
 
@@ -214,7 +214,7 @@
 //                 offerToReceiveVideo: false,
 //                 offerToReceiveAudio: false
 //             });
-            
+
 //             await pc.setLocalDescription(offer);
 
 //             await this.db.ref(`rooms/${this.roomId}/offers/${viewerId}`).push({
@@ -298,7 +298,7 @@
 //         this.screenVideo.srcObject = null;
 //         this.screenVideo.style.display = 'none';
 //         this.placeholder.style.display = 'block';
-        
+
 //         this.isSharing = false;
 //         this.isPaused = false;
 //         this.viewerCount = 0;
@@ -311,7 +311,7 @@
 //         if (!this.isSharing) return;
 
 //         this.isPaused = !this.isPaused;
-        
+
 //         if (this.mediaStream) {
 //             this.mediaStream.getTracks().forEach(track => {
 //                 track.enabled = !this.isPaused;
@@ -325,7 +325,7 @@
 
 //     toggleFullscreen() {
 //         const videoContainer = document.querySelector('.video-container');
-        
+
 //         if (!document.fullscreenElement) {
 //             if (videoContainer.requestFullscreen) {
 //                 videoContainer.requestFullscreen();
@@ -344,7 +344,7 @@
 //     handleFullscreenChange() {
 //         const videoContainer = document.querySelector('.video-container');
 //         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-        
+
 //         if (isFullscreen) {
 //             videoContainer.classList.add('fullscreen');
 //         } else {
@@ -357,13 +357,13 @@
 //         this.pauseBtn.disabled = !this.isSharing;
 //         this.stopBtn.disabled = !this.isSharing;
 //         this.fullscreenBtn.disabled = !this.isSharing;
-        
+
 //         if (this.isSharing) {
 //             this.startBtn.innerHTML = '<i class="fas fa-play"></i> Sharing...';
 //         } else {
 //             this.startBtn.innerHTML = '<i class="fas fa-play"></i> Start Sharing';
 //         }
-        
+
 //         if (this.isPaused) {
 //             this.pauseBtn.innerHTML = '<i class="fas fa-play"></i> Resume';
 //             this.pauseBtn.classList.add('paused');
@@ -384,7 +384,7 @@
 //     showNotification(message, type = 'info') {
 //         this.notification.textContent = message;
 //         this.notification.className = `notification ${type} show`;
-        
+
 //         setTimeout(() => {
 //             this.notification.classList.remove('show');
 //         }, 3000);
@@ -392,7 +392,7 @@
 
 //     handleError(error) {
 //         let errorMessage = 'An error occurred while starting screen share.';
-        
+
 //         if (error.name === 'NotAllowedError') {
 //             errorMessage = 'Screen sharing permission denied. Please allow and try again.';
 //         } else if (error.name === 'NotFoundError') {
@@ -400,7 +400,7 @@
 //         } else if (error.name === 'NotSupportedError') {
 //             errorMessage = 'Screen sharing is not supported in this browser.';
 //         }
-        
+
 //         this.showNotification(errorMessage, 'error');
 //         this.updateStatus('Error');
 //         console.error('Screen share error:', error);
@@ -433,11 +433,11 @@
 // // Initialize the app when DOM is loaded
 // document.addEventListener('DOMContentLoaded', () => {
 //     const app = new ScreenShareApp();
-    
+
 //     if (!app.checkBrowserSupport()) {
 //         return;
 //     }
-    
+
 //     console.log('Screen Share App initialized');
 // });class ScreenShareApp {
 //     constructor() {
@@ -450,7 +450,7 @@
 //         this.roomId = null;
 //         this.peerId = null;
 //         this.remotePeerId = null;
-        
+
 //         // WebRTC Configuration
 //         this.peerConnectionConfig = {
 //             iceServers: [
@@ -461,14 +461,14 @@
 //                 { urls: 'stun:stun4.l.google.com:19302' }
 //             ]
 //         };
-        
+
 //         this.isPaused = false;
-        
+
 //         this.initializeElements();
 //         this.bindEvents();
 //         this.updateUI();
 //         this.initFirebase();
-        
+
 //         // Generate unique peer ID
 //         this.peerId = 'peer_' + Math.random().toString(36).substr(2, 9);
 //     }
@@ -490,7 +490,7 @@
 //         this.pauseBtn.addEventListener('click', () => this.togglePause());
 //         this.stopBtn.addEventListener('click', () => this.stopScreenShare());
 //         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        
+
 //         document.addEventListener('fullscreenchange', () => this.handleFullscreenChange());
 //         document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
 //     }
@@ -503,7 +503,7 @@
 //                 }
 //                 this.db = firebase.database();
 //                 console.log('Firebase initialized for WebRTC signaling');
-                
+
 //                 // Set default room
 //                 this.roomId = 'default-room';
 //             } else {
@@ -520,7 +520,7 @@
 //         try {
 //             this.showNotification('Starting screen share...', 'info');
 //             this.updateStatus('Connecting...');
-            
+
 //             // Request screen capture
 //             this.mediaStream = await navigator.mediaDevices.getDisplayMedia({
 //                 video: {
@@ -557,7 +557,7 @@
 //             this.updateUI();
 //             this.updateStatus('Sharing');
 //             this.showNotification('Screen sharing started! Share the viewer link.', 'success');
-            
+
 //             // Monitor viewers
 //             this.monitorViewers();
 
@@ -655,7 +655,7 @@
 //                 offerToReceiveVideo: false,
 //                 offerToReceiveAudio: false
 //             });
-            
+
 //             await pc.setLocalDescription(offer);
 
 //             await this.db.ref(`rooms/${this.roomId}/offers/${viewerId}`).push({
@@ -739,7 +739,7 @@
 //         this.screenVideo.srcObject = null;
 //         this.screenVideo.style.display = 'none';
 //         this.placeholder.style.display = 'block';
-        
+
 //         this.isSharing = false;
 //         this.isPaused = false;
 //         this.viewerCount = 0;
@@ -752,7 +752,7 @@
 //         if (!this.isSharing) return;
 
 //         this.isPaused = !this.isPaused;
-        
+
 //         if (this.mediaStream) {
 //             this.mediaStream.getTracks().forEach(track => {
 //                 track.enabled = !this.isPaused;
@@ -766,7 +766,7 @@
 
 //     toggleFullscreen() {
 //         const videoContainer = document.querySelector('.video-container');
-        
+
 //         if (!document.fullscreenElement) {
 //             if (videoContainer.requestFullscreen) {
 //                 videoContainer.requestFullscreen();
@@ -785,7 +785,7 @@
 //     handleFullscreenChange() {
 //         const videoContainer = document.querySelector('.video-container');
 //         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-        
+
 //         if (isFullscreen) {
 //             videoContainer.classList.add('fullscreen');
 //         } else {
@@ -798,13 +798,13 @@
 //         this.pauseBtn.disabled = !this.isSharing;
 //         this.stopBtn.disabled = !this.isSharing;
 //         this.fullscreenBtn.disabled = !this.isSharing;
-        
+
 //         if (this.isSharing) {
 //             this.startBtn.innerHTML = '<i class="fas fa-play"></i> Sharing...';
 //         } else {
 //             this.startBtn.innerHTML = '<i class="fas fa-play"></i> Start Sharing';
 //         }
-        
+
 //         if (this.isPaused) {
 //             this.pauseBtn.innerHTML = '<i class="fas fa-play"></i> Resume';
 //             this.pauseBtn.classList.add('paused');
@@ -825,7 +825,7 @@
 //     showNotification(message, type = 'info') {
 //         this.notification.textContent = message;
 //         this.notification.className = `notification ${type} show`;
-        
+
 //         setTimeout(() => {
 //             this.notification.classList.remove('show');
 //         }, 3000);
@@ -833,7 +833,7 @@
 
 //     handleError(error) {
 //         let errorMessage = 'An error occurred while starting screen share.';
-        
+
 //         if (error.name === 'NotAllowedError') {
 //             errorMessage = 'Screen sharing permission denied. Please allow and try again.';
 //         } else if (error.name === 'NotFoundError') {
@@ -841,7 +841,7 @@
 //         } else if (error.name === 'NotSupportedError') {
 //             errorMessage = 'Screen sharing is not supported in this browser.';
 //         }
-        
+
 //         this.showNotification(errorMessage, 'error');
 //         this.updateStatus('Error');
 //         console.error('Screen share error:', error);
@@ -874,11 +874,11 @@
 // // Initialize the app when DOM is loaded
 // document.addEventListener('DOMContentLoaded', () => {
 //     const app = new ScreenShareApp();
-    
+
 //     if (!app.checkBrowserSupport()) {
 //         return;
 //     }
-    
+
 //     console.log('Screen Share App initialized');
 // });
 
@@ -893,7 +893,7 @@ class ScreenShareApp {
         this.roomId = 'live-stream-room';
         this.peerId = 'broadcaster_' + Math.random().toString(36).substr(2, 9);
         this.isPaused = false;
-        
+
         // this.peerConnectionConfig = {
         //     iceServers: [
         //         { urls: 'stun:stun.l.google.com:19302' },
@@ -902,39 +902,39 @@ class ScreenShareApp {
         //         { urls: 'stun:stun3.l.google.com:19302' }
         //     ]
         // };
-        
-       // Enhanced WebRTC configuration with TURN servers
-this.peerConnectionConfig = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        // ✅ ADD TURN SERVERS (same as viewer.js)
-        {
-            urls: [
-                'turn:openrelay.metered.ca:80',
-                'turn:openrelay.metered.ca:443',
-                'turn:openrelay.metered.ca:443?transport=tcp',
-                'turns:openrelay.metered.ca:443?transport=tcp'
+
+        // Enhanced WebRTC configuration with TURN servers
+        this.peerConnectionConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                // ✅ ADD TURN SERVERS (same as viewer.js)
+                {
+                    urls: [
+                        'turn:openrelay.metered.ca:80',
+                        'turn:openrelay.metered.ca:443',
+                        'turn:openrelay.metered.ca:443?transport=tcp',
+                        'turns:openrelay.metered.ca:443?transport=tcp'
+                    ],
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: [
+                        'turn:numb.viagenie.ca:3478?transport=udp',
+                        'turn:numb.viagenie.ca:3478?transport=tcp'
+                    ],
+                    username: 'webrtc@live.com',
+                    credential: 'muazkh'
+                }
             ],
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-        },
-        {
-            urls: [
-                'turn:numb.viagenie.ca:3478?transport=udp',
-                'turn:numb.viagenie.ca:3478?transport=tcp'
-            ],
-            username: 'webrtc@live.com',
-            credential: 'muazkh'
-        }
-    ],
-    iceTransportPolicy: 'all',
-    bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require',
-    iceCandidatePoolSize: 10
-};
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceCandidatePoolSize: 10
+        };
         this.initializeElements();
         this.bindEvents();
         this.updateUI();
@@ -958,7 +958,7 @@ this.peerConnectionConfig = {
         this.pauseBtn.addEventListener('click', () => this.togglePause());
         this.stopBtn.addEventListener('click', () => this.stopScreenShare());
         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        
+
         document.addEventListener('fullscreenchange', () => this.handleFullscreenChange());
         document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
     }
@@ -985,7 +985,7 @@ this.peerConnectionConfig = {
         try {
             this.showNotification('Starting screen share...', 'info');
             this.updateStatus('Starting...');
-            
+
             this.mediaStream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
                     cursor: 'always',
@@ -1086,12 +1086,19 @@ this.peerConnectionConfig = {
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
                     console.log('🧊 Sending ICE candidate to:', viewerId);
-                    this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
+                    //this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
+                    // this.db.ref(`rooms/${this.roomId}/candidates/${viewerId}`).push({
+                    //     candidate: event.candidate.toJSON(),
+                    //     from: this.peerId,
+                    //     to: viewerId,
+                    //     timestamp: Date.now()
+                    // });
+                    this.db.ref(`rooms/${this.roomId}/candidates/${this.peerId}`).push({
                         candidate: event.candidate.toJSON(),
                         from: this.peerId,
-                        to: viewerId,
-                        timestamp: Date.now()
+                        to: viewerId
                     });
+
                 }
             };
 
@@ -1182,7 +1189,7 @@ this.peerConnectionConfig = {
         this.screenVideo.srcObject = null;
         this.screenVideo.style.display = 'none';
         this.placeholder.style.display = 'block';
-        
+
         this.isSharing = false;
         this.isPaused = false;
         this.viewerCount = 0;
@@ -1195,7 +1202,7 @@ this.peerConnectionConfig = {
         if (!this.isSharing) return;
 
         this.isPaused = !this.isPaused;
-        
+
         if (this.mediaStream) {
             this.mediaStream.getTracks().forEach(track => {
                 track.enabled = !this.isPaused;
@@ -1209,7 +1216,7 @@ this.peerConnectionConfig = {
 
     toggleFullscreen() {
         const container = document.querySelector('.video-container');
-        
+
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
             if (container.requestFullscreen) {
                 container.requestFullscreen();
@@ -1228,7 +1235,7 @@ this.peerConnectionConfig = {
     handleFullscreenChange() {
         const container = document.querySelector('.video-container');
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-        
+
         if (isFullscreen) {
             container.classList.add('fullscreen');
         } else {
@@ -1241,7 +1248,7 @@ this.peerConnectionConfig = {
         this.pauseBtn.disabled = !this.isSharing;
         this.stopBtn.disabled = !this.isSharing;
         this.fullscreenBtn.disabled = !this.isSharing;
-        
+
         if (this.isPaused) {
             this.pauseBtn.innerHTML = '<i class="fas fa-play"></i> Resume';
             this.pauseBtn.classList.add('paused');
@@ -1267,7 +1274,7 @@ this.peerConnectionConfig = {
 
     handleError(error) {
         let errorMessage = 'Failed to start screen share';
-        
+
         if (error.name === 'NotAllowedError') {
             errorMessage = 'Permission denied. Please allow screen sharing.';
         } else if (error.name === 'NotFoundError') {
@@ -1275,7 +1282,7 @@ this.peerConnectionConfig = {
         } else if (error.name === 'NotSupportedError') {
             errorMessage = 'Screen sharing not supported.';
         }
-        
+
         this.showNotification(errorMessage, 'error');
         this.updateStatus('Error');
     }

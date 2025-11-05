@@ -367,7 +367,9 @@ this.peerConnection.onicecandidate = (event) => {
 
     listenForOffers() {
         // Listen for offers
-        const offersRef = this.db.ref(`rooms/${this.roomId}/offers`);
+     //   const offersRef = this.db.ref(`rooms/${this.roomId}/offers`);
+     const offersRef = this.db.ref(`rooms/${this.roomId}/offers/${this.peerId}`);
+
         offersRef.on('child_added', async (snapshot) => {
             const data = snapshot.val();
             if (data && data.to === this.peerId && data.from === this.broadcasterId) {

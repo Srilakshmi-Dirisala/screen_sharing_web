@@ -1,18 +1,13 @@
 class VideoViewer {
     constructor() {
         this.viewVideo = document.getElementById('screenVideo');
-        this.videoPlaceholder = document.getElementById('placeholder');
         this.statusText = document.getElementById('status');
-        this.viewerCountEl = document.getElementById('viewerCount');
-        
         this.peerConnection = null;
-        this.audioContext = null;
         this.db = null;
         this.roomId = 'default-room';
         this.peerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
         this.broadcasterId = null;
         this.isConnected = false;
-        this.reconnectAttempts = 0;
         
         this.peerConnectionConfig = {
             iceServers: [
@@ -20,7 +15,11 @@ class VideoViewer {
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:stun3.l.google.com:19302' }
-            ]
+            ],
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceCandidatePoolSize: 10
         };
         
         this.initFirebase();
@@ -100,136 +99,105 @@ class VideoViewer {
 
     async handleOffer(data) {
         try {
-            console.log('🔄 Processing offer...');
-            this.updateStatus('connecting', 'Processing stream...');
-
-            // Close existing connection if any
-            if (this.peerConnection) {
-                this.peerConnection.close();
-            }
-
-            // Create new peer connection with optimized settings
-            this.peerConnection = new RTCPeerConnection({
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' }
-                    // Add TURN servers if available for NAT traversal
-                    // { urls: 'turn:your-turn-server.com', username: 'user', credential: 'pass' }
-                ],
-                iceTransportPolicy: 'all',
-                bundlePolicy: 'max-bundle',
-                rtcpMuxPolicy: 'require',
-                iceCandidatePoolSize: 10
-            });
+            console.log('Received offer, creating peer connection');
             
-            // Optimize for video streaming
-            this.peerConnection.addTransceiver('video', { direction: 'recvonly' });
-            this.peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+            // Create a new RTCPeerConnection
+            this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
             
-            // Set bandwidth constraints
-            const senders = this.peerConnection.getSenders();
-            senders.forEach(sender => {
-                if (sender.track && sender.track.kind === 'video') {
-                    const parameters = sender.getParameters();
-                    if (!parameters.encodings) {
-                        parameters.encodings = [{}];
-                    }
-                    // Lower resolution for better performance
-                    parameters.encodings[0].maxBitrate = 2500000; // 2.5 Mbps
-                    parameters.encodings[0].scaleResolutionDownBy = 1.0; // Adjust as needed
-                    sender.setParameters(parameters).catch(console.error);
-                }
-            });
-
-            // Handle incoming tracks (THE VIDEO!)
-            this.peerConnection.ontrack = (event) => {
-                console.log('📺 Received track:', event.track.kind, event.track);
-                
-                // For debugging
-                event.track.onmute = () => console.log('Track muted');
-                event.track.onunmute = () => {
-                    console.log('Track unmuted, readyState:', event.track.readyState);
-                    this.ensureVideoPlaying();
-                };
-                event.track.onended = () => console.log('Track ended');
-                
-                if (event.streams && event.streams[0]) {
-                    const stream = event.streams[0];
-                    console.log('🎬 Setting video stream. Active tracks:', 
-                        stream.getTracks().map(t => `${t.kind} (${t.readyState})`).join(', '));
-                    
-                    // Store the stream for later use
-                    this.currentStream = stream;
-                    
-                    // Setup video element
-                    this.setupVideoElement(stream);
-                    
-                    // Try to play the video
-                    this.ensureVideoPlaying();
-                    
-                    this.isConnected = true;
-                    this.updateStatus('connected', 'Live Streaming');
-                }
-            };
-
-            // Handle ICE candidates
+            // Set up event handlers
             this.peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    console.log('🧊 Sending ICE candidate to broadcaster');
-                    this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
-                        candidate: event.candidate.toJSON(),
+                    this.db.ref(`rooms/${this.roomId}/answers/${this.peerId}/ice`).push({
                         from: this.peerId,
                         to: this.broadcasterId,
-                        timestamp: Date.now()
+                        candidate: event.candidate
                     });
                 }
             };
 
-            // Monitor connection state
-            this.peerConnection.onconnectionstatechange = () => {
-                console.log('🔗 Connection state:', this.peerConnection.connectionState);
-                
-                const state = this.peerConnection.connectionState;
-                if (state === 'connected') {
-                    this.updateStatus('connected', 'Live Streaming');
-                } else if (state === 'disconnected') {
-                    this.updateStatus('waiting', 'Connection lost. Reconnecting...');
-                    this.handleDisconnection();
-                } else if (state === 'failed') {
-                    this.updateStatus('waiting', 'Connection failed. Retrying...');
-                    this.handleDisconnection();
-                } else if (state === 'connecting') {
-                    this.updateStatus('waiting', 'Connecting to stream...');
+            this.peerConnection.ontrack = (event) => {
+                console.log('Received track:', event.track.kind);
+                if (event.track.kind === 'video' || event.track.kind === 'audio') {
+                    // Add track to the stream
+                    if (!this.viewVideo.srcObject) {
+                        this.viewVideo.srcObject = new MediaStream();
+                    }
+                    this.viewVideo.srcObject.addTrack(event.track);
+                    
+                    // Update status
+                    if (this.statusText) {
+                        this.statusText.textContent = 'Live Stream - Connected';
+                    }
+                    
+                    // Try to play the video with audio
+                    this.playVideoWithAudio();
                 }
             };
 
-            // Set remote description (offer)
+            // Set remote description
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            console.log('✅ Remote description set');
-
-            // Create answer
-            const answer = await this.peerConnection.createAnswer();
+            
+            // Create and send answer
+            const answer = await this.peerConnection.createAnswer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
+            
             await this.peerConnection.setLocalDescription(answer);
-            console.log('✅ Local description set');
-
-            // Send answer
-            await this.db.ref(`rooms/${this.roomId}/answers`).push({
-                answer: {
-                    type: answer.type,
-                    sdp: answer.sdp
-                },
+            
+            // Send answer to broadcaster
+            this.db.ref(`rooms/${this.roomId}/answers/${this.peerId}`).set({
+                type: 'answer',
                 from: this.peerId,
                 to: this.broadcasterId,
-                timestamp: Date.now()
+                sdp: answer.sdp
             });
 
-            console.log('📤 Answer sent to broadcaster');
+            // Listen for ICE candidates from broadcaster
+            this.db.ref(`rooms/${this.roomId}/offers/${this.broadcasterId}/ice`).on('child_added', (snapshot) => {
+                const candidate = snapshot.val();
+                if (candidate && candidate.candidate) {
+                    this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate.candidate));
+                }
+            });
 
+            console.log('Answer created and sent');
+            
         } catch (error) {
-            console.error('❌ Error handling offer:', error);
-            this.updateStatus('waiting', 'Connection error. Retrying...');
+            console.error('Error handling offer:', error);
+            if (this.statusText) {
+                this.statusText.textContent = 'Connection Error';
+            }
+        }
+    }
+    
+    async playVideoWithAudio() {
+        if (!this.viewVideo) return;
+        
+        try {
+            // First try to play with audio
+            this.viewVideo.muted = false;
+            await this.viewVideo.play();
+            console.log('Playing video with audio');
+        } catch (err) {
+            console.warn('Autoplay with audio failed, trying muted:', err);
+            try {
+                // If that fails, try with muted audio
+                this.viewVideo.muted = true;
+                await this.viewVideo.play();
+                console.log('Playing video with muted audio');
+                
+                // Show a message that the user needs to interact to unmute
+                if (this.statusText) {
+                    this.statusText.textContent = 'Live Stream - Click to unmute';
+                    this.viewVideo.onclick = () => {
+                        this.viewVideo.muted = false;
+                        this.statusText.textContent = 'Live Stream - Connected';
+                    };
+                }
+            } catch (err2) {
+                console.error('Failed to play video:', err2);
+            }
         }
     }
 

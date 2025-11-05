@@ -110,13 +110,19 @@ class VideoViewer {
             
             // Close existing connection if any
             if (this.peerConnection) {
+                this.peerConnection.ontrack = null;
+                this.peerConnection.onicecandidate = null;
+                this.peerConnection.oniceconnectionstatechange = null;
                 this.peerConnection.close();
+                this.peerConnection = null;
             }
 
             // Create new connection with enhanced config
             this.peerConnection = new RTCPeerConnection({
                 ...this.peerConnectionConfig,
-                sdpSemantics: 'unified-plan'  // Better for multiple streams
+                sdpSemantics: 'unified-plan',  // Better for multiple streams
+                bundlePolicy: 'max-bundle',
+                rtcpMuxPolicy: 'require'
             });
             
             // Enhanced ICE candidate handling
@@ -128,6 +134,8 @@ class VideoViewer {
                         from: this.peerId,
                         to: this.broadcasterId,
                         timestamp: Date.now()
+                    }).catch(error => {
+                        console.error('Failed to send ICE candidate:', error);
                     });
                 } else {
                     console.log('All ICE candidates have been sent');
@@ -146,22 +154,33 @@ class VideoViewer {
             };
 
             this.peerConnection.ontrack = (event) => {
-                console.log('Received track:', event.track.kind);
-                if (event.track.kind === 'video' || event.track.kind === 'audio') {
-                    // Add track to the stream
-                    if (!this.viewVideo.srcObject) {
-                        this.viewVideo.srcObject = new MediaStream();
-                    }
-                    this.viewVideo.srcObject.addTrack(event.track);
-                    
-                    // Update status
-                    if (this.statusText) {
-                        this.statusText.textContent = 'Live Stream - Connected';
-                    }
-                    
-                    // Try to play the video with audio
-                    this.playVideoWithAudio();
+                console.log('Received track:', event.track.kind, 'with id:', event.track.id);
+                
+                if (!this.viewVideo.srcObject) {
+                    console.log('Creating new MediaStream for video element');
+                    this.viewVideo.srcObject = new MediaStream();
                 }
+                
+                // Add track to the stream
+                this.viewVideo.srcObject.addTrack(event.track);
+                console.log('Track added to stream. Track count:', this.viewVideo.srcObject.getTracks().length);
+                
+                // Set video properties for better playback
+                this.viewVideo.playsInline = true;
+                this.viewVideo.autoplay = true;
+                this.viewVideo.muted = true; // Start muted to allow autoplay
+                
+                // Try to play the video
+                this.playVideoWithAudio().catch(error => {
+                    console.error('Failed to play video:', error);
+                    this.showError('Could not play video. Please check your connection.');
+                });
+                
+                // Handle track ended event
+                event.track.onended = () => {
+                    console.log('Track ended:', event.track.kind, event.track.id);
+                    this.handleDisconnection();
+                };
             };
 
             // Set remote description
@@ -202,32 +221,69 @@ class VideoViewer {
     }
     
     async playVideoWithAudio() {
-        if (!this.viewVideo) return;
+        if (!this.viewVideo) {
+            console.error('Video element not found');
+            return Promise.reject('Video element not found');
+        }
+        
+        // Update status
+        if (this.statusText) {
+            this.statusText.textContent = 'Connecting to stream...';
+        }
+        
+        // Check if we have video tracks
+        const videoTracks = this.viewVideo.srcObject?.getVideoTracks() || [];
+        if (videoTracks.length === 0) {
+            console.warn('No video tracks available');
+            return Promise.reject('No video tracks available');
+        }
+        
+        console.log('Video track readyState:', videoTracks[0].readyState);
         
         try {
-            // First try to play with audio
-            this.viewVideo.muted = false;
-            await this.viewVideo.play();
-            console.log('Playing video with audio');
-        } catch (err) {
-            console.warn('Autoplay with audio failed, trying muted:', err);
-            try {
-                // If that fails, try with muted audio
-                this.viewVideo.muted = true;
-                await this.viewVideo.play();
-                console.log('Playing video with muted audio');
-                
-                // Show a message that the user needs to interact to unmute
-                if (this.statusText) {
-                    this.statusText.textContent = 'Live Stream - Click to unmute';
-                    this.viewVideo.onclick = () => {
+            // First try to play with audio (but still muted to satisfy autoplay policies)
+            this.viewVideo.muted = true; // Start muted
+            this.viewVideo.volume = 1.0; // Set volume to max (will be controlled by mute)
+            
+            const playPromise = this.viewVideo.play();
+            
+            if (playPromise !== undefined) {
+                await playPromise.then(() => {
+                    console.log('Video is playing');
+                    if (this.statusText) {
+                        this.statusText.textContent = 'Live Stream - Click to unmute';
+                    }
+                    
+                    // Add click handler to unmute
+                    const unmuteOnClick = () => {
                         this.viewVideo.muted = false;
-                        this.statusText.textContent = 'Live Stream - Connected';
+                        if (this.statusText) {
+                            this.statusText.textContent = 'Live Stream - Connected';
+                        }
+                        this.viewVideo.removeEventListener('click', unmuteOnClick);
                     };
-                }
-            } catch (err2) {
-                console.error('Failed to play video:', err2);
+                    this.viewVideo.addEventListener('click', unmuteOnClick);
+                    
+                    return true;
+                }).catch(error => {
+                    console.warn('Autoplay was prevented:', error);
+                    throw error;
+                });
             }
+            
+            return true;
+        } catch (error) {
+            console.error('Error playing video:', error);
+            this.showError('Could not play video. Please click to try again.');
+            
+            // Add click handler to retry
+            const retryOnClick = () => {
+                this.viewVideo.removeEventListener('click', retryOnClick);
+                this.playVideoWithAudio().catch(console.error);
+            };
+            this.viewVideo.addEventListener('click', retryOnClick);
+            
+            throw error;
         }
     }
 

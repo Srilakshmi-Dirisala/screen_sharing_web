@@ -87,7 +87,41 @@ class VideoViewer {
         try {
             const connectionState = this.peerConnection?.connectionState || 'no-connection';
             const iceState = this.peerConnection?.iceConnectionState || 'no-ice';
-            
+            // Monitor ICE connection with detailed logs
+this.peerConnection.oniceconnectionstatechange = () => {
+    const state = this.peerConnection.iceConnectionState;
+    console.log('🧊 ICE State:', state);
+    
+    if (state === 'checking') {
+        this.updateStatus('connecting', 'Trying to connect...');
+    } else if (state === 'connected' || state === 'completed') {
+        this.updateStatus('connected', 'Connected!');
+    } else if (state === 'failed') {
+        this.updateStatus('error', 'Connection failed - Network blocked or no TURN server');
+        console.error('❌ ICE Connection Failed - Possible causes:');
+        console.error('1. Firewall blocking connection');
+        console.error('2. TURN servers not working');
+        console.error('3. Network restrictions');
+    } else if (state === 'disconnected') {
+        this.updateStatus('error', 'Disconnected');
+    }
+};
+
+// Log ALL ICE candidates to see what's being tried
+this.peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+        const c = event.candidate;
+        console.log('🧊 ICE Candidate Type:', c.type, 'Protocol:', c.protocol, 'Address:', c.address);
+        
+        // Send to broadcaster
+        this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
+            candidate: c.toJSON(),
+            from: this.peerId,
+            to: this.broadcasterId,
+            timestamp: Date.now()
+        });
+    }
+};
             console.log(`🔍 Connection health - State: ${connectionState}, ICE: ${iceState}`);
 
             // Check if we need to restart the connection

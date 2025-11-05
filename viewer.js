@@ -85,9 +85,11 @@ class VideoViewer {
         const offersRef = this.db.ref(`rooms/${this.roomId}/offers`);
         offersRef.on('child_added', async (snapshot) => {
             const data = snapshot.val();
-            if (data && data.to === this.peerId && data.from === this.broadcasterId) {
+            if (data && data.to === this.peerId) {
                 console.log('📨 Received offer from broadcaster');
                 await this.handleOffer(data);
+                // Remove the offer after handling to prevent reuse
+                snapshot.ref.remove().catch(console.error);
             }
         });
 
@@ -104,10 +106,18 @@ class VideoViewer {
 
     async handleOffer(data) {
         try {
-            console.log('Received offer, creating peer connection');
+            console.log('🔄 Handling offer for viewer:', this.peerId);
             
-            // Create a new RTCPeerConnection
-            this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
+            // Close existing connection if any
+            if (this.peerConnection) {
+                this.peerConnection.close();
+            }
+
+            // Create new connection with enhanced config
+            this.peerConnection = new RTCPeerConnection({
+                ...this.peerConnectionConfig,
+                sdpSemantics: 'unified-plan'  // Better for multiple streams
+            });
             
             // Enhanced ICE candidate handling
             this.peerConnection.onicecandidate = (event) => {
@@ -233,7 +243,10 @@ class VideoViewer {
     }
 
     handleDisconnection() {
-        console.log('🔄 Attempting to reconnect...');
+        if (this.reconnectAttempts === 0) {
+            console.log('🔌 Connection lost, attempting to reconnect...');
+        }
+        
         this.reconnectAttempts++;
         
         if (this.reconnectAttempts <= 5) {
@@ -253,18 +266,13 @@ class VideoViewer {
     }
 
     updateStatus(status, message) {
-        const timestamp = new Date().toISOString().substr(11, 8);
-        console.log(`[${timestamp}] Status: ${status} - ${message}`);
+        const timestamp = new Date().toLocaleTimeString();
+        const statusMessage = `[${timestamp}] ${message}`;
+        console.log(`[${status.toUpperCase()}] ${statusMessage}`);
+        
         if (this.statusText) {
-            this.statusText.textContent = `[${timestamp}] ${message}`;
+            this.statusText.textContent = statusMessage;
             this.statusText.className = `status-${status}`;
-        }
-        if (this.statusText) {
-            if (status === 'connected') {
-                this.statusText.innerHTML = message + '<span class="live-badge">LIVE</span>';
-            } else {
-                this.statusText.innerHTML = message;
-            }
         }
         
         if (this.videoStatus) {

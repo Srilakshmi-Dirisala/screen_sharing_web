@@ -133,20 +133,24 @@ this.peerConnection.oniceconnectionstatechange = () => {
 //     }
 // };
 //             console.log(`🔍 Connection health - State: ${connectionState}, ICE: ${iceState}`);
+
 this.peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
         const c = event.candidate;
-        console.log('🧊 ICE Candidate Type:', c.type, 'Protocol:', c.protocol, 'Address:', c.address);
-        
-        // Send to broadcaster
+        console.log('🧊 ICE Candidate generated:', c);
+
+        // ✅ Ensure broadcasterId is already set when offer is received
         this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
             candidate: c.toJSON(),
-            from: this.peerId,
-            to: this.broadcasterId,
+            from: this.peerId,           // viewer ID
+            to: this.broadcasterId || '', // broadcaster ID (set earlier from data.from)
             timestamp: Date.now()
         });
+    } else {
+        console.log("🧊 ICE gathering complete (no more candidates).");
     }
 };
+
 
             // Check if we need to restart the connection
             if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {

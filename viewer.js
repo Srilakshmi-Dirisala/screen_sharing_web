@@ -8,13 +8,18 @@ class VideoViewer {
         this.peerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
         this.broadcasterId = null;
         this.isConnected = false;
+        this.reconnectAttempts = 0;
         
         this.peerConnectionConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' }
+                { 
+                    urls: 'turn:numb.viagenie.ca',
+                    username: 'webrtc@live.com',
+                    credential: 'muazkh'
+                }
             ],
             iceTransportPolicy: 'all',
             bundlePolicy: 'max-bundle',
@@ -104,14 +109,29 @@ class VideoViewer {
             // Create a new RTCPeerConnection
             this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
             
-            // Set up event handlers
+            // Enhanced ICE candidate handling
             this.peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    this.db.ref(`rooms/${this.roomId}/answers/${this.peerId}/ice`).push({
+                    console.log('ICE Candidate:', event.candidate.candidate);
+                    this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
+                        candidate: event.candidate.toJSON(),
                         from: this.peerId,
                         to: this.broadcasterId,
-                        candidate: event.candidate
+                        timestamp: Date.now()
                     });
+                } else {
+                    console.log('All ICE candidates have been sent');
+                }
+            };
+
+            // Monitor ICE connection state
+            this.peerConnection.oniceconnectionstatechange = () => {
+                const iceState = this.peerConnection.iceConnectionState;
+                console.log('🧊 ICE Connection State:', iceState);
+                
+                if (iceState === 'failed' || iceState === 'disconnected') {
+                    this.updateStatus('warning', 'Connection issue. Reconnecting...');
+                    this.handleDisconnection();
                 }
             };
 
@@ -213,45 +233,37 @@ class VideoViewer {
     }
 
     handleDisconnection() {
-        this.isConnected = false;
-        if (this.viewVideo) {
-            this.viewVideo.style.display = 'none';
-        }
-        if (this.videoPlaceholder) {
-            this.videoPlaceholder.style.display = 'flex';
-        }
+        console.log('🔄 Attempting to reconnect...');
+        this.reconnectAttempts++;
         
-        if (this.peerConnection) {
-            try {
-                this.peerConnection.close();
-            } catch (e) {
-                console.error('Error closing peer connection:', e);
-            }
-            this.peerConnection = null;
-        }
-        
-        // Try to reconnect after a delay
-        if (this.reconnectAttempts < 5) {
-            this.reconnectAttempts++;
-            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff, max 30s
-            console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-            setTimeout(() => this.setupPeerConnection(), delay);
+        if (this.reconnectAttempts <= 5) {
+            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Max 30s delay
+            console.log(`⏳ Next reconnection attempt in ${delay/1000} seconds...`);
+            
+            setTimeout(() => {
+                if (this.peerConnection) {
+                    this.peerConnection.close();
+                    this.peerConnection = null;
+                }
+                this.init();
+            }, delay);
         } else {
-            this.updateStatus('error', 'Failed to connect. Please refresh the page.');
+            this.showError('Failed to reconnect after multiple attempts. Please refresh the page.');
         }
     }
 
-    updateStatus(status, text) {
-        console.log(`Status update [${status}]: ${text}`);
+    updateStatus(status, message) {
+        const timestamp = new Date().toISOString().substr(11, 8);
+        console.log(`[${timestamp}] Status: ${status} - ${message}`);
         if (this.statusText) {
-            this.statusText.textContent = text;
+            this.statusText.textContent = `[${timestamp}] ${message}`;
             this.statusText.className = `status-${status}`;
         }
         if (this.statusText) {
             if (status === 'connected') {
-                this.statusText.innerHTML = text + '<span class="live-badge">LIVE</span>';
+                this.statusText.innerHTML = message + '<span class="live-badge">LIVE</span>';
             } else {
-                this.statusText.innerHTML = text;
+                this.statusText.innerHTML = message;
             }
         }
         

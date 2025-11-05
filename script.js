@@ -1147,15 +1147,14 @@ class ScreenShareApp {
 const offer = await pc.createOffer();
 await pc.setLocalDescription(offer);
 
-// ✅ Write the offer where the viewer expects it
+console.log("🟡 About to write offer to Firebase...");
 await this.db.ref(`rooms/${this.roomId}/broadcaster`).set({
-  offer: {
-    type: offer.type,
-    sdp: offer.sdp
-  },
+  offer: { type: offer.type, sdp: offer.sdp },
   from: this.peerId,
   timestamp: Date.now()
 });
+console.log("🟢 Offer successfully written (or attempted)!");
+
 
 console.log('📤 Offer stored in Firebase for room:', this.roomId);
 

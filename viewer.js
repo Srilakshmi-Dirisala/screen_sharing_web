@@ -222,6 +222,7 @@ class VideoViewer {
         }
     }
 
+    
     async init() {
         try {
             this.updateStatus('waiting', 'Connecting to room...');

@@ -91,8 +91,12 @@ class VideoViewer {
         try {
             const connectionState = this.peerConnection?.connectionState || 'no-connection';
             const iceState = this.peerConnection?.iceConnectionState || 'no-ice';
-            
-            // Removed redundant ICE handler assignments
+
+            // Avoid premature reconnects while connection is still being established
+            if (connectionState === 'connecting' || iceState === 'checking' || iceState === 'new' || iceState === 'gathering') {
+                console.log('⏳ Connection still establishing, skipping reconnect check');
+                return;
+            }
 
             // Check if we need to restart the connection
             if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {
@@ -290,8 +294,10 @@ class VideoViewer {
         try {
             console.log('Received offer, creating peer connection');
             
-            // Create a new RTCPeerConnection
-            this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
+            // Reuse existing RTCPeerConnection if present; otherwise create
+            if (!this.peerConnection) {
+                this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
+            }
             
             // Set up ICE connection state change handler
             this.peerConnection.oniceconnectionstatechange = () => {
@@ -301,6 +307,18 @@ class VideoViewer {
                 if (iceState === 'failed' || iceState === 'disconnected') {
                     this.updateStatus('warning', 'Connection issue. Reconnecting...');
                     this.handleDisconnection();
+                }
+            };
+
+            // Ensure connection state handler sets isConnected when established
+            this.peerConnection.onconnectionstatechange = () => {
+                const state = this.peerConnection.connectionState;
+                console.log('🔌 Peer connection state changed:', state);
+                if (state === 'connected') {
+                    this.isConnected = true;
+                    this.updateStatus('connected', 'Connected to stream');
+                } else if (state === 'failed' || state === 'disconnected') {
+                    this.isConnected = false;
                 }
             };
 

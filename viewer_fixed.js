@@ -246,20 +246,9 @@ class VideoViewer {
             };
 
             this.peerConnection.ontrack = (event) => {
-                console.log('Received track:', event.track.kind);
-                if (event.track.kind === 'video' || event.track.kind === 'audio') {
-                    if (!this.viewVideo.srcObject) {
-                        this.viewVideo.srcObject = new MediaStream();
-                    }
-                    this.viewVideo.srcObject.addTrack(event.track);
-                    this.isConnected = true;
-                    this.viewVideo.classList.add('visible');
-                    
-                    if (this.statusText) {
-                        this.statusText.textContent = 'Live Stream - Connected';
-                    }
-                    
-                    this.playVideoWithAudio();
+                console.log('🎥 Received track:', event.track.kind);
+                if (event.streams && event.streams[0]) {
+                    this.handleStream(event.streams[0]);
                 }
             };
 

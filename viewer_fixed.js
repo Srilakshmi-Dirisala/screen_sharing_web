@@ -137,8 +137,21 @@ class VideoViewer {
             
             this.peerConnection.ontrack = (event) => {
                 console.log('🎥 Received track:', event.track.kind);
+                console.log('🔍 Event streams:', event.streams);
+                console.log('🔍 Event track:', event.track);
+                
+                // Check if we have a stream
                 if (event.streams && event.streams[0]) {
+                    console.log('✅ Using event.streams[0]');
                     this.handleStream(event.streams[0]);
+                } else if (event.track) {
+                    // Create a new stream with the track
+                    console.log('✅ Creating new stream with track');
+                    const stream = new MediaStream();
+                    stream.addTrack(event.track);
+                    this.handleStream(stream);
+                } else {
+                    console.error('❌ No stream or track found in event');
                 }
             };
         }
@@ -247,8 +260,21 @@ class VideoViewer {
 
             this.peerConnection.ontrack = (event) => {
                 console.log('🎥 Received track:', event.track.kind);
+                console.log('🔍 Event streams:', event.streams);
+                console.log('🔍 Event track:', event.track);
+                
+                // Check if we have a stream
                 if (event.streams && event.streams[0]) {
+                    console.log('✅ Using event.streams[0]');
                     this.handleStream(event.streams[0]);
+                } else if (event.track) {
+                    // Create a new stream with the track
+                    console.log('✅ Creating new stream with track');
+                    const stream = new MediaStream();
+                    stream.addTrack(event.track);
+                    this.handleStream(stream);
+                } else {
+                    console.error('❌ No stream or track found in event');
                 }
             };
 
@@ -321,17 +347,51 @@ class VideoViewer {
         if (!stream) return;
         
         console.log('🎥 Received stream:', stream.id);
+        console.log('📹 Stream tracks:', stream.getTracks());
+        console.log('📹 Video tracks:', stream.getVideoTracks());
+        console.log('📹 Audio tracks:', stream.getAudioTracks());
         
         const placeholder = document.getElementById('placeholder');
         if (placeholder) {
             placeholder.style.display = 'none';
         }
         
+        // Set the stream to video
         this.viewVideo.srcObject = stream;
         this.viewVideo.classList.add('visible');
         this.viewVideo.style.display = 'block';
         
-        this.playVideoWithAudio();
+        // Force video to load
+        this.viewVideo.load();
+        
+        // Add debug styling
+        this.viewVideo.style.backgroundColor = 'transparent';
+        this.viewVideo.style.minHeight = '300px';
+        
+        console.log('✅ Video element configured:', {
+            srcObject: !!this.viewVideo.srcObject,
+            videoWidth: this.viewVideo.videoWidth,
+            videoHeight: this.viewVideo.videoHeight,
+            readyState: this.viewVideo.readyState
+        });
+        
+        // Wait for video to be ready, then play
+        this.viewVideo.onloadedmetadata = () => {
+            console.log('🎬 Video metadata loaded:', {
+                videoWidth: this.viewVideo.videoWidth,
+                videoHeight: this.viewVideo.videoHeight,
+                duration: this.viewVideo.duration
+            });
+            this.playVideoWithAudio();
+        };
+        
+        // Fallback if metadata doesn't load
+        setTimeout(() => {
+            if (this.viewVideo.readyState < 2) {
+                console.log('⏰ Forcing video play after timeout');
+                this.playVideoWithAudio();
+            }
+        }, 1000);
     }
 
     ensureVideoPlaying() {

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Track Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        video { border: 2px solid #ccc; margin: 10px; max-width: 400px; }
+        .info { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Video Track Test</h1>
+    <button onclick="startScreenShare()">Start Screen Share</button>
+    <button onclick="testVideoContent()">Test Video Content</button>
+    
+    <div class="info" id="info">Click "Start Screen Share" to begin</div>
+    
+    <video id="localVideo" autoplay muted></video>
+    <video id="testVideo" autoplay muted></video>
+    <canvas id="canvas" style="border: 2px solid red;"></canvas>
+
+    <script>
+        let mediaStream = null;
+
+        async function startScreenShare() {
+            try {
+                mediaStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: true
+                });
+
+                const localVideo = document.getElementById('localVideo');
+                localVideo.srcObject = mediaStream;
+
+                console.log('📹 Stream started');
+                console.log('📹 Tracks:', mediaStream.getTracks());
+                
+                const videoTrack = mediaStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    console.log('📹 Video settings:', videoTrack.getSettings());
+                }
+
+                updateInfo('Screen share started - check if you can see your screen in the video above');
+
+            } catch (error) {
+                console.error('Error:', error);
+                updateInfo('Error: ' + error.message);
+            }
+        }
+
+        function testVideoContent() {
+            if (!mediaStream) {
+                updateInfo('Please start screen share first');
+                return;
+            }
+
+            const video = document.getElementById('testVideo');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            video.srcObject = mediaStream;
+
+            video.onloadedmetadata = () => {
+                console.log('🎬 Video metadata loaded');
+                console.log('📹 Video dimensions:', video.videoWidth + 'x' + video.videoHeight);
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                // Draw video to canvas to test if it has content
+                setTimeout(() => {
+                    ctx.drawImage(video, 0, 0);
+                    
+                    // Get image data to check if it's black
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    
+                    let hasContent = false;
+                    for (let i = 0; i < data.length; i += 4) {
+                        // Check if pixel is not black (any RGB value > 10)
+                        if (data[i] > 10 || data[i+1] > 10 || data[i+2] > 10) {
+                            hasContent = true;
+                            break;
+                        }
+                    }
+                    
+                    if (hasContent) {
+                        updateInfo('✅ Video has content - you should see your screen in the canvas');
+                    } else {
+                        updateInfo('❌ Video appears to be black/empty');
+                    }
+                }, 1000);
+            };
+
+            updateInfo('Testing video content...');
+        }
+
+        function updateInfo(message) {
+            document.getElementById('info').textContent = message;
+        }
+    </script>
+</body>
+</html>

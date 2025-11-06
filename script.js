@@ -137,6 +137,21 @@ class ScreenShareApp {
             });
 
             console.log('📹 Screen capture started');
+            console.log('📹 Stream tracks:', this.mediaStream.getTracks());
+            console.log('📹 Video tracks:', this.mediaStream.getVideoTracks());
+            console.log('📹 Audio tracks:', this.mediaStream.getAudioTracks());
+
+            // Check video track settings
+            const videoTrack = this.mediaStream.getVideoTracks()[0];
+            if (videoTrack) {
+                const settings = videoTrack.getSettings();
+                console.log('📹 Video track settings:', settings);
+                console.log('📹 Video track state:', {
+                    enabled: videoTrack.enabled,
+                    muted: videoTrack.muted,
+                    readyState: videoTrack.readyState
+                });
+            }
 
             this.screenVideo.srcObject = this.mediaStream;
             this.screenVideo.style.display = 'block';

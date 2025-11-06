@@ -127,6 +127,10 @@ body {
     display: none;
 }
 
+#screenVideo.visible {
+    display: block;
+}
+
 .video-placeholder {
     text-align: center;
     color: #666;

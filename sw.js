@@ -8,7 +8,7 @@ const urlsToCache = [
     '/viewer.html',
     '/styles.css',
     '/script.js',
-    '/viewer.js',
+    '/viewer_fixed.js',
     '/firebase-config.js',
     'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js',

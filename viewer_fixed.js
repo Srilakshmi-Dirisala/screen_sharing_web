@@ -10,42 +10,14 @@ class VideoViewer {
         this.isConnected = false;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 1000; // Start with 1 second delay
+        this.reconnectDelay = 1000;
         
-        // Initialize connection settings
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 1000; // Start with 1 second
-        this.iceServers = [];
-        
-        // Enhanced WebRTC configuration for cross-device compatibility
-        // this.peerConnectionConfig = {
-        //     iceServers: [
-        //         // Public STUN servers
-        //         { urls: 'stun:stun.l.google.com:19302' },
-        //         { urls: 'stun:stun1.l.google.com:19302' },
-        //         { urls: 'stun:stun2.l.google.com:19302' },
-        //         { urls: 'stun:stun3.l.google.com:19302' },
-        //         { urls: 'stun:stun4.l.google.com:19302' },
-        //         { urls: 'stun:stun.stunprotocol.org:3478' },
-        //         { urls: 'stun:stun.voipstunt.com:3478' },
-        //         { urls: 'stun:stun.ekiga.net' },
-        //         { urls: 'stun:stun.ideasip.com' }
-        //     ],
-        //     // Try both relay and non-relay candidates
-        //     iceTransportPolicy: 'all',
-        //     // Optimize bundle size
-        //     bundlePolicy: 'max-bundle',
-        //     // Reduce number of candidates
-        //     rtcpMuxPolicy: 'require',
-        //     // Modern SDP format
-        //     sdpSemantics: 'unified-plan',
-        //     // Increased pool size for better connectivity
-        //     iceCandidatePoolSize: 10,
-        //     // Additional reliability settings
-        //     iceCandidatePooling: true,
         this.peerConnectionConfig = {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
             {
               urls: [
                 'turn:openrelay.metered.ca:80',
@@ -65,74 +37,21 @@ class VideoViewer {
         this.initFirebase();
     }
     
-    async checkConnectionHealth() {
-        console.log('🔍 Checking connection health...');
-        
-        // Check if peerConnection exists
-        if (!this.peerConnection) {
-            console.log('ℹ️ No active peer connection, attempting to reconnect...');
-            await this.attemptReconnect();
-            return;
-        }
-        
-        if (!this.isConnected) {
-            console.log('⚠️ Connection health check: Not connected, checking state...');
-            const conn = this.peerConnection.connectionState;
-            const ice = this.peerConnection.iceConnectionState;
-            // If either state already indicates connected, mark connected and exit
-            if (conn === 'connected' || ice === 'connected') {
-                this.isConnected = true;
-                console.log('✅ Connection is now active (health check)');
-                return;
-            }
-            // If still establishing, do not tear down
-            if (conn === 'connecting' || ice === 'checking' || ice === 'new' || ice === 'gathering') {
-                console.log('⏳ Still establishing (health check), skipping reconnect');
-                return;
-            }
-            console.log('🔄 Attempting to reconnect...');
-            await this.handleDisconnection();
-            return;
-        }
-
-        try {
-            const connectionState = this.peerConnection?.connectionState || 'no-connection';
-            const iceState = this.peerConnection?.iceConnectionState || 'no-ice';
-
-            // Avoid premature reconnects while connection is still being established
-            if (connectionState === 'connecting' || iceState === 'checking' || iceState === 'new' || iceState === 'gathering') {
-                console.log('⏳ Connection still establishing, skipping reconnect check');
-                return;
-            }
-
-            // Check if we need to restart the connection
-            if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {
-                console.log('🔌 Connection issue detected, attempting to recover...');
-                await this.handleDisconnection();
-            }
-        } catch (error) {
-            console.error('❌ Error checking connection health:', error);
-        }
-    }
-
     async initFirebase() {
         try {
             if (typeof firebase !== 'undefined' && typeof FIREBASE_CONFIG !== 'undefined') {
                 if (!firebase.apps || firebase.apps.length === 0) {
                     firebase.initializeApp(FIREBASE_CONFIG);
-                    // Enable offline persistence for Firebase
                     await firebase.database().goOnline();
                 }
                 this.db = firebase.database();
                 console.log('✅ Firebase initialized for viewer');
                 
-                // Set security rules for public read access
                 this.db.ref('.info/connected').on('value', (snapshot) => {
                     if (snapshot.val() === true) {
                         console.log('🌐 Connected to Firebase');
                         this.updateStatus('connecting', 'Connecting to stream...');
                         
-                        // Add a small delay to ensure everything is ready
                         setTimeout(async () => {
                             try {
                                 await this.init();
@@ -142,7 +61,6 @@ class VideoViewer {
                             }
                         }, 500);
                         
-                        // Set up periodic connection health check
                         this.connectionCheckInterval = setInterval(() => {
                             this.checkConnectionHealth();
                         }, 5000);
@@ -153,7 +71,6 @@ class VideoViewer {
                     }
                 });
                 
-                // Monitor network status
                 window.addEventListener('online', this.handleNetworkChange.bind(this));
                 window.addEventListener('offline', this.handleNetworkChange.bind(this));
                 
@@ -172,18 +89,16 @@ class VideoViewer {
             this.updateStatus('waiting', 'Connecting to room...');
             console.log('👤 Viewer ID:', this.peerId);
             console.log('🔧 Initializing peer connection...');
-            // Clean up any existing connection
+            
             if (this.peerConnection) {
                 console.log('♻️ Cleaning up existing peer connection');
                 this.peerConnection.close();
                 this.peerConnection = null;
             }
             
-            // Create new peer connection
             this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
             console.log('✅ Peer connection created');
             
-            // Set up connection state change handler
             this.peerConnection.onconnectionstatechange = () => {
                 console.log('🔌 Peer connection state changed:', this.peerConnection.connectionState);
                 
@@ -204,7 +119,6 @@ class VideoViewer {
                 }
             };
             
-            // Set up ICE connection state change handler
             this.peerConnection.oniceconnectionstatechange = () => {
                 console.log('🧊 ICE connection state:', this.peerConnection.iceConnectionState);
                 
@@ -221,7 +135,6 @@ class VideoViewer {
                 }
             };
             
-            // Set up track handler for incoming media
             this.peerConnection.ontrack = (event) => {
                 console.log('🎥 Received track:', event.track.kind);
                 if (event.streams && event.streams[0]) {
@@ -233,11 +146,10 @@ class VideoViewer {
             console.error('❌ Error initializing viewer:', error);
             this.updateStatus('error', 'Failed to initialize. Please refresh the page.');
         }
+        
         try {
-            // Register as viewer
             const viewerRef = this.db.ref(`rooms/${this.roomId}/viewers/${this.peerId}`);
             
-            // Set viewer data
             await viewerRef.set({
                 id: this.peerId,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -245,12 +157,10 @@ class VideoViewer {
             
             console.log('✅ Successfully registered as viewer');
             
-            // Set up cleanup on disconnect
             await viewerRef.onDisconnect().remove()
                 .then(() => console.log('✅ Cleanup on disconnect configured'))
                 .catch(err => console.error('❌ Failed to set up cleanup on disconnect:', err));
                 
-            // Listen for broadcaster
             console.log('👂 Listening for broadcaster in room:', this.roomId);
             const broadcasterRef = this.db.ref(`rooms/${this.roomId}/broadcaster`);
             broadcasterRef.on('value', async (snapshot) => {
@@ -272,11 +182,9 @@ class VideoViewer {
             console.error('❌ Error initializing viewer:', error);
             this.updateStatus('error', 'Failed to initialize. Please refresh the page.');
         }
-        
     }
 
     listenForOffers() {
-        // Listen for offers
         const offersRef = this.db.ref(`rooms/${this.roomId}/offers/${this.peerId}`);
 
         offersRef.on('child_added', async (snapshot) => {
@@ -287,7 +195,6 @@ class VideoViewer {
             }
         });
 
-        // Listen for ICE candidates
         const candidatesRef = this.db.ref(`rooms/${this.roomId}/iceCandidates`);
         candidatesRef.on('child_added', async (snapshot) => {
             const data = snapshot.val();
@@ -302,12 +209,10 @@ class VideoViewer {
         try {
             console.log('Received offer, creating peer connection');
             
-            // Reuse existing RTCPeerConnection if present; otherwise create
             if (!this.peerConnection) {
                 this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
             }
             
-            // Set up ICE connection state change handler
             this.peerConnection.oniceconnectionstatechange = () => {
                 const iceState = this.peerConnection.iceConnectionState;
                 console.log('🧊 ICE Connection State:', iceState);
@@ -318,7 +223,6 @@ class VideoViewer {
                 }
             };
 
-            // Ensure connection state handler sets isConnected when established
             this.peerConnection.onconnectionstatechange = () => {
                 const state = this.peerConnection.connectionState;
                 console.log('🔌 Peer connection state changed:', state);
@@ -330,29 +234,37 @@ class VideoViewer {
                 }
             };
 
+            this.peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
+                        candidate: event.candidate.toJSON(),
+                        from: this.peerId,
+                        to: this.broadcasterId,
+                        timestamp: Date.now()
+                    });
+                }
+            };
+
             this.peerConnection.ontrack = (event) => {
                 console.log('Received track:', event.track.kind);
                 if (event.track.kind === 'video' || event.track.kind === 'audio') {
-                    // Add track to the stream
                     if (!this.viewVideo.srcObject) {
                         this.viewVideo.srcObject = new MediaStream();
                     }
                     this.viewVideo.srcObject.addTrack(event.track);
+                    this.isConnected = true;
+                    this.viewVideo.classList.add('visible');
                     
-                    // Update status
                     if (this.statusText) {
                         this.statusText.textContent = 'Live Stream - Connected';
                     }
                     
-                    // Try to play the video with audio
                     this.playVideoWithAudio();
                 }
             };
 
-            // Set remote description
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             
-            // Create and send answer
             const answer = await this.peerConnection.createAnswer({
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
@@ -360,7 +272,6 @@ class VideoViewer {
             
             await this.peerConnection.setLocalDescription(answer);
             
-            // Send answer to broadcaster
             this.db.ref(`rooms/${this.roomId}/answers/${this.peerId}`).set({
                 type: 'answer',
                 from: this.peerId,
@@ -382,19 +293,16 @@ class VideoViewer {
         if (!this.viewVideo) return;
         
         try {
-            // First try to play with audio
             this.viewVideo.muted = false;
             await this.viewVideo.play();
             console.log('Playing video with audio');
         } catch (err) {
             console.warn('Autoplay with audio failed, trying muted:', err);
             try {
-                // If that fails, try with muted audio
                 this.viewVideo.muted = true;
                 await this.viewVideo.play();
                 console.log('Playing video with muted audio');
                 
-                // Show a message that the user needs to interact to unmute
                 if (this.statusText) {
                     this.statusText.textContent = 'Live Stream - Click to unmute';
                     this.viewVideo.onclick = () => {
@@ -404,6 +312,7 @@ class VideoViewer {
                 }
             } catch (err2) {
                 console.error('Failed to play video:', err2);
+                this.showPlayButton();
             }
         }
     }
@@ -419,228 +328,26 @@ class VideoViewer {
         }
     }
 
-    async handleDisconnection() {
-        console.log('🔌 Handling disconnection...');
+    handleStream(stream) {
+        if (!stream) return;
         
-        // Clean up existing connection
-        if (this.peerConnection) {
-            try {
-                // Clear all event handlers first
-                const pc = this.peerConnection;
-                pc.ontrack = null;
-                pc.onicecandidate = null;
-                pc.oniceconnectionstatechange = null;
-                pc.onicegatheringstatechange = null;
-                pc.onsignalingstatechange = null;
-                pc.onconnectionstatechange = null;
-                pc.onnegotiationneeded = null;
-                
-                // Close all transceivers
-                if (pc.getTransceivers) {
-                    pc.getTransceivers().forEach(transceiver => {
-                        try {
-                            transceiver.stop && transceiver.stop();
-                        } catch (e) {
-                            console.warn('Error stopping transceiver:', e);
-                        }
-                    });
-                }
-                
-                // Close the connection
-                pc.close();
-                console.log('✅ Peer connection closed cleanly');
-            } catch (e) {
-                console.error('Error closing peer connection:', e);
-            } finally {
-                this.peerConnection = null;
-            }
+        console.log('🎥 Received stream:', stream.id);
+        
+        const placeholder = document.getElementById('placeholder');
+        if (placeholder) {
+            placeholder.style.display = 'none';
         }
         
-        // Update status
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000); // Max 30s delay
-            this.reconnectAttempts++;
-            
-            console.log(`♻️ Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-            this.updateStatus('reconnecting', `Reconnecting in ${Math.ceil(delay/1000)} seconds...`);
-            
-            // Clear any existing reconnection timeout
-            if (this.reconnectTimeout) {
-                clearTimeout(this.reconnectTimeout);
-            }
-            
-            this.reconnectTimeout = setTimeout(async () => {
-                try {
-                    await this.init();
-                    this.reconnectAttempts = 0; // Reset on successful reconnect
-                } catch (error) {
-                    console.error('Reconnection failed:', error);
-                    this.handleDisconnection(); // Try again
-                }
-            }, delay);
-        } else {
-            console.error('Max reconnection attempts reached');
-            this.showError('Connection lost. Please check your internet connection and refresh the page.');
-            
-            // Show retry button
-            const retryButton = document.createElement('button');
-            retryButton.textContent = 'Retry Connection';
-            retryButton.className = 'retry-button';
-            retryButton.onclick = () => {
-                this.reconnectAttempts = 0;
-                this.handleDisconnection();
-            };
-            
-            const errorContainer = document.querySelector('.error-container') || document.createElement('div');
-            errorContainer.className = 'error-container';
-            errorContainer.innerHTML = '';
-            errorContainer.appendChild(document.createTextNode('Failed to reconnect. '));
-            errorContainer.appendChild(retryButton);
-            
-            const statusBar = document.querySelector('.status-bar');
-            if (statusBar) {
-                statusBar.appendChild(errorContainer);
-            }
-        }
-    }
-
-    updateStatus(status, message) {
-        const timestamp = new Date().toISOString().substr(11, 8);
-        console.log(`[${timestamp}] Status: ${status} - ${message}`);
-        if (this.statusText) {
-            this.statusText.textContent = `[${timestamp}] ${message}`;
-            this.statusText.className = `status-${status}`;
-        }
-        if (this.statusText) {
-            if (status === 'connected') {
-                this.statusText.innerHTML = message + '<span class="live-badge">LIVE</span>';
-            } else {
-                this.statusText.innerHTML = message;
-            }
-        }
-        
-        if (this.videoStatus) {
-            this.videoStatus.className = `video-status ${status}`;
-        }
-    }
-
-    showError(message) {
-        console.error('Error:', message);
-        const placeholderTitle = document.getElementById('placeholderTitle');
-        const placeholderMessage = document.getElementById('placeholderMessage');
-        
-        if (this.videoPlaceholder) {
-            this.videoPlaceholder.style.display = 'flex';
-            this.videoPlaceholder.innerHTML = `
-                <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 20px; color: #ff4444;"></i>
-                <h2>Connection Error</h2>
-                <p>${message}</p>
-                <button id="retryButton" style="margin-top: 20px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Retry Connection
-                </button>
-            `;
-            
-            const retryButton = document.getElementById('retryButton');
-            if (retryButton) {
-                retryButton.addEventListener('click', () => window.location.reload());
-            }
-        }
-        
-        this.updateStatus('error', message);
-    }
-    
-    setupVideoElement(stream) {
-        if (!this.viewVideo) return;
-        
-        console.log('Setting up video element with stream:', stream.id);
-        
-        // Log all available tracks
-        const audioTracks = stream.getAudioTracks();
-        const videoTracks = stream.getVideoTracks();
-        
-        // Apply video optimizations
-        videoTracks.forEach(track => {
-            // Request lower resolution for better performance
-            const settings = track.getSettings();
-            console.log('Video track settings:', {
-                width: settings.width,
-                height: settings.height,
-                frameRate: settings.frameRate,
-                aspectRatio: settings.aspectRatio
-            });
-            
-            // Try to apply constraints for better performance
-            track.applyConstraints({
-                width: { ideal: 1280, max: 1920 },
-                height: { ideal: 720, max: 1080 },
-                frameRate: { ideal: 30, max: 30 },
-                latency: 0.1
-            }).catch(console.warn);
-        });
-        
-        console.log('Available tracks:', {
-            audio: audioTracks.map(t => `${t.kind} (${t.label}, ${t.enabled ? 'enabled' : 'disabled'})`),
-            video: videoTracks.map(t => `${t.kind} (${t.label}, ${t.enabled ? 'enabled' : 'disabled'})`)
-        });
-        
-        // Set video element properties
         this.viewVideo.srcObject = stream;
-        this.viewVideo.playsInline = true;
-        this.viewVideo.muted = false; // Allow audio to play
-        this.viewVideo.volume = 1.0; // Set to max volume
-        this.viewVideo.autoplay = true;
-        
-        // Make sure video is visible
         this.viewVideo.classList.add('visible');
+        this.viewVideo.style.display = 'block';
         
-        // Hide placeholder
-        if (this.videoPlaceholder) {
-            this.videoPlaceholder.classList.add('hidden');
-        }
-        
-        // Add audio context for better audio handling
-        if (audioTracks.length > 0 && !this.audioContext) {
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                this.audioContext = new AudioContext();
-                const source = this.audioContext.createMediaStreamSource(stream);
-                source.connect(this.audioContext.destination);
-                console.log('Audio context created and connected');
-            } catch (e) {
-                console.warn('Could not create audio context:', e);
-            }
-        }
-        
-        // Log video element state
-        console.log('Video element state:', {
-            readyState: this.viewVideo.readyState,
-            paused: this.viewVideo.paused,
-            ended: this.viewVideo.ended,
-            currentTime: this.viewVideo.currentTime,
-            muted: this.viewVideo.muted,
-            volume: this.viewVideo.volume
-        });
-        
-        // Add event listeners for debugging
-        this.viewVideo.onplay = () => console.log('Video started playing');
-        this.viewVideo.onplaying = () => console.log('Video is playing');
-        this.viewVideo.onwaiting = () => console.log('Video waiting for data');
-        this.viewVideo.onstalled = () => console.log('Video stalled');
-        this.viewVideo.onerror = (e) => console.error('Video error:', e);
-        
-        // Add audio track event listeners
-        audioTracks.forEach(track => {
-            console.log(`Audio track added: ${track.id} (${track.label})`);
-            track.onmute = () => console.log('Audio track muted');
-            track.onunmute = () => console.log('Audio track unmuted');
-            track.onended = () => console.log('Audio track ended');
-        });
+        this.playVideoWithAudio();
     }
-    
+
     ensureVideoPlaying() {
         if (!this.viewVideo || !this.viewVideo.srcObject) return;
         
-        // If video is already playing, do nothing
         if (!this.viewVideo.paused) {
             console.log('Video is already playing');
             return;
@@ -653,9 +360,6 @@ class VideoViewer {
             playPromise
                 .then(() => {
                     console.log('Video playback started successfully');
-                    if (this.videoPlaceholder) {
-                        this.videoPlaceholder.classList.add('hidden');
-                    }
                 })
                 .catch(error => {
                     console.error('Error playing video:', error);
@@ -665,35 +369,199 @@ class VideoViewer {
     }
     
     showPlayButton() {
-        if (!this.videoPlaceholder) return;
-        
         console.log('Showing play button');
         
-        this.videoPlaceholder.style.display = 'flex';
-        this.videoPlaceholder.classList.remove('hidden');
-        this.videoPlaceholder.innerHTML = `
-            <div style="text-align: center; padding: 20px;">
-                <i class="fas fa-play-circle" style="font-size: 64px; margin-bottom: 20px; cursor: pointer;" id="playButton"></i>
-                <h3>Click to play video</h3>
-                <p style="font-size: 0.9em; opacity: 0.8; margin-top: 10px;">
-                    If the video doesn't play automatically, click the play button above.
-                </p>
-            </div>
-        `;
+        const placeholder = document.getElementById('placeholder');
+        if (placeholder) {
+            placeholder.style.display = 'flex';
+            placeholder.innerHTML = `
+                <div class="placeholder-content">
+                    <i class="fas fa-play-circle" style="font-size: 64px; margin-bottom: 20px; cursor: pointer;" id="playButton"></i>
+                    <h3>Click to play video</h3>
+                    <p>Browser requires user interaction to start playback</p>
+                </div>
+            `;
+            
+            const playButton = document.getElementById('playButton');
+            if (playButton) {
+                playButton.addEventListener('click', () => {
+                    console.log('Play button clicked');
+                    this.viewVideo.play().then(() => {
+                        console.log('Video started playing after user interaction');
+                        placeholder.style.display = 'none';
+                        if (this.statusText) {
+                            this.statusText.innerHTML = 'Live Stream - Connected <span class="live-badge">LIVE</span>';
+                        }
+                    }).catch(error => {
+                        console.error('Still failed to play after click:', error);
+                    });
+                });
+            }
+        }
         
-        const playButton = document.getElementById('playButton');
-        if (playButton) {
-            playButton.addEventListener('click', () => {
-                console.log('Play button clicked');
-                if (this.viewVideo) {
-                    this.ensureVideoPlaying();
+        if (this.statusText) {
+            this.statusText.innerHTML = 'Click play button to start <span class="live-badge">LIVE</span>';
+        }
+    }
+
+    async handleDisconnection() {
+        console.log('🔌 Handling disconnection...');
+        
+        if (this.peerConnection) {
+            try {
+                const pc = this.peerConnection;
+                pc.ontrack = null;
+                pc.onicecandidate = null;
+                pc.oniceconnectionstatechange = null;
+                pc.onicegatheringstatechange = null;
+                pc.onsignalingstatechange = null;
+                pc.onconnectionstatechange = null;
+                pc.onnegotiationneeded = null;
+                
+                if (pc.getTransceivers) {
+                    pc.getTransceivers().forEach(transceiver => {
+                        try {
+                            transceiver.stop && transceiver.stop();
+                        } catch (e) {
+                            console.warn('Error stopping transceiver:', e);
+                        }
+                    });
                 }
-            });
+                
+                pc.close();
+                console.log('✅ Peer connection closed cleanly');
+            } catch (e) {
+                console.error('Error closing peer connection:', e);
+            } finally {
+                this.peerConnection = null;
+            }
+        }
+        
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000);
+            this.reconnectAttempts++;
+            
+            console.log(`♻️ Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            this.updateStatus('reconnecting', `Reconnecting in ${Math.ceil(delay/1000)} seconds...`);
+            
+            if (this.reconnectTimeout) {
+                clearTimeout(this.reconnectTimeout);
+            }
+            
+            this.reconnectTimeout = setTimeout(async () => {
+                try {
+                    await this.init();
+                    this.reconnectAttempts = 0;
+                } catch (error) {
+                    console.error('Reconnection failed:', error);
+                    this.handleDisconnection();
+                }
+            }, delay);
+        } else {
+            console.error('Max reconnection attempts reached');
+            this.showError('Connection lost. Please check your internet connection and refresh the page.');
+        }
+    }
+
+    updateStatus(status, message) {
+        const timestamp = new Date().toISOString().substr(11, 8);
+        console.log(`[${timestamp}] Status: ${status} - ${message}`);
+        if (this.statusText) {
+            if (status === 'connected') {
+                this.statusText.innerHTML = message + '<span class="live-badge">LIVE</span>';
+            } else {
+                this.statusText.innerHTML = message;
+            }
+            this.statusText.className = `status-${status}`;
+        }
+    }
+
+    showError(message) {
+        console.error('Error:', message);
+        this.updateStatus('error', message);
+    }
+
+    handleNetworkChange() {
+        try {
+            if (navigator.onLine) {
+                console.log('🌐 Network online - scheduling reconnect');
+                this.updateStatus('connecting', 'Network online, reconnecting...');
+                this.handleDisconnection();
+            } else {
+                console.log('🚫 Network offline');
+                this.updateStatus('error', 'Network offline');
+            }
+        } catch (e) {
+            console.error('Error in handleNetworkChange:', e);
+        }
+    }
+
+    async attemptReconnect() {
+        console.log('♻️ attemptReconnect called');
+        await this.handleDisconnection();
+    }
+
+    async checkConnectionHealth() {
+        console.log('🔍 Checking connection health...');
+        
+        if (!this.peerConnection) {
+            console.log('ℹ️ No active peer connection, attempting to reconnect...');
+            await this.attemptReconnect();
+            return;
+        }
+        
+        // Check if we have a working video stream
+        const hasStream = !!(this.viewVideo && this.viewVideo.srcObject && (this.viewVideo.srcObject.getTracks()?.length > 0));
+        const isVideoPlaying = !!(this.viewVideo && !this.viewVideo.paused);
+        
+        if (hasStream && isVideoPlaying) {
+            this.isConnected = true;
+            console.log('✅ Video is playing, connection is healthy');
+            return;
+        }
+        
+        if (!this.isConnected) {
+            console.log('⚠️ Connection health check: Not connected, checking state...');
+            if (hasStream) {
+                this.isConnected = true;
+                console.log('✅ Media tracks present, marking as connected');
+                return;
+            }
+            const conn = this.peerConnection.connectionState;
+            const ice = this.peerConnection.iceConnectionState;
+            if (conn === 'connected' || ice === 'connected') {
+                this.isConnected = true;
+                console.log('✅ Connection is now active (health check)');
+                return;
+            }
+            if (conn === 'connecting' || ice === 'checking' || ice === 'new' || ice === 'gathering') {
+                console.log('⏳ Still establishing (health check), skipping reconnect');
+                return;
+            }
+            console.log('🔄 Attempting to reconnect...');
+            await this.handleDisconnection();
+            return;
+        }
+
+        try {
+            const connectionState = this.peerConnection?.connectionState || 'no-connection';
+            const iceState = this.peerConnection?.iceConnectionState || 'no-ice';
+
+            if (connectionState === 'connecting' || iceState === 'checking' || iceState === 'new' || iceState === 'gathering') {
+                console.log('⏳ Connection still establishing, skipping reconnect check');
+                return;
+            }
+
+            if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {
+                console.log('🔌 Connection issue detected, attempting to recover...');
+                await this.handleDisconnection();
+            }
+        } catch (error) {
+            console.error('❌ Error checking connection health:', error);
         }
     }
 }
 
-// Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
     const viewer = new VideoViewer();
     console.log('🚀 Video Viewer initialized');

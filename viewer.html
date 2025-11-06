@@ -190,10 +190,6 @@
                     <h3>Connecting to Stream</h3>
                     <p>Please wait while we connect you to the live stream...</p>
                 </div>
-ine></video>
-            <div id="placeholder" style="display: none;">
-                <div class="spinner"></div>
-                <p>Connecting to live stream...</p>
             </div>
             <div id="liveBadge">LIVE</div>
         </div>
@@ -222,75 +218,6 @@ ine></video>
                    FIREBASE_CONFIG.databaseURL;
         }
     </script>
-    <script src="viewer.js"></script>
-    
-    <script>
-        // Initialize the viewer
-        document.addEventListener('DOMContentLoaded', () => {
-            const viewer = new VideoViewer();
-            console.log('🚀 Live Stream Viewer initialized');
-            
-            const video = document.getElementById('screenVideo');
-            const placeholder = document.getElementById('placeholder');
-            const liveBadge = document.getElementById('liveBadge');
-            
-            if (video) {
-                // Handle autoplay with sound
-                const playWithAudio = async () => {
-                    try {
-                        await video.play();
-                        console.log('Video playback started with audio');
-                        if (placeholder) placeholder.style.display = 'none';
-                        if (liveBadge) liveBadge.style.display = 'block';
-                    } catch (err) {
-                        console.warn('Autoplay with audio failed:', err);
-                        // If autoplay with sound fails, try with muted
-                        video.muted = true;
-                        await video.play();
-                        console.log('Video playback started (muted)');
-                        if (placeholder) placeholder.style.display = 'none';
-                        if (liveBadge) liveBadge.style.display = 'block';
-                    }
-                };
-                
-                video.onloadedmetadata = playWithAudio;
-                
-                // Show live badge when video starts playing
-                video.onplaying = () => {
-                    console.log('Video is playing');
-                    if (placeholder) placeholder.style.display = 'none';
-                    if (liveBadge) liveBadge.style.display = 'block';
-                };
-                
-                // Handle any playback errors
-                video.onerror = (e) => {
-                    console.error('Video error:', video.error);
-                    if (placeholder) {
-                        placeholder.style.display = 'flex';
-                        const statusText = placeholder.querySelector('p');
-                        if (statusText) statusText.textContent = 'Error loading stream';
-                    }
-                };
-            }
-            
-            // Enable fullscreen on click
-            document.addEventListener('click', () => {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(console.error);
-                }
-            });
-            
-            // Toggle fullscreen with F key
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'f' || e.key === 'F') {
-                    if (document.fullscreenElement) {
-                        document.exitFullscreen();
-                    } else {
-                        document.documentElement.requestFullscreen().catch(console.error);
-                    }
-                }
-            });
-        });
-    </script>
+    <script src="viewer_fixed.js"></script>
 </body>
 </html>

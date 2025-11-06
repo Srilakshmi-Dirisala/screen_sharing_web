@@ -43,32 +43,26 @@ class VideoViewer {
         //     iceCandidatePoolSize: 10,
         //     // Additional reliability settings
         //     iceCandidatePooling: true,
-        //     iceCandidatePoolSize: 10,
-        //     // Timeout settings
-        //     iceConnectionTimeout: 10000,
-        //     // ICE restart policy
-        //     iceRestart: true
-        // };
         this.peerConnectionConfig = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    {
-      urls: "turn:relay1.expressturn.com:3478",
-      username: "efree",
-      credential: "free"
-    }
-  ]
-};
-
-        // Initialize with public TURN servers (for testing)
-        this.initializeTurnServers().then(() => {
-            console.log('✅ TURN servers initialized');
-            this.initFirebase();
-        }).catch(error => {
-            console.error('❌ Failed to initialize TURN servers:', error);
-            // Continue with Firebase even if TURN servers fail
-            this.initFirebase();
-        });
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            {
+              urls: [
+                'turn:openrelay.metered.ca:80',
+                'turn:openrelay.metered.ca:443',
+                'turn:openrelay.metered.ca:443?transport=tcp',
+                'turns:openrelay.metered.ca:443?transport=tcp'
+              ],
+              username: 'openrelayproject',
+              credential: 'openrelayproject'
+            }
+          ],
+          iceTransportPolicy: 'all',
+          bundlePolicy: 'max-bundle',
+          iceCandidatePoolSize: 10
+        };
+        
+        this.initFirebase();
     }
     
     async checkConnectionHealth() {
@@ -97,60 +91,8 @@ class VideoViewer {
         try {
             const connectionState = this.peerConnection?.connectionState || 'no-connection';
             const iceState = this.peerConnection?.iceConnectionState || 'no-ice';
-            // Monitor ICE connection with detailed logs
-this.peerConnection.oniceconnectionstatechange = () => {
-    const state = this.peerConnection.iceConnectionState;
-    console.log('🧊 ICE State:', state);
-    
-    if (state === 'checking') {
-        this.updateStatus('connecting', 'Trying to connect...');
-    } else if (state === 'connected' || state === 'completed') {
-        this.updateStatus('connected', 'Connected!');
-    } else if (state === 'failed') {
-        this.updateStatus('error', 'Connection failed - Network blocked or no TURN server');
-        console.error('❌ ICE Connection Failed - Possible causes:');
-        console.error('1. Firewall blocking connection');
-        console.error('2. TURN servers not working');
-        console.error('3. Network restrictions');
-    } else if (state === 'disconnected') {
-        this.updateStatus('error', 'Disconnected');
-    }
-};
-
-// Log ALL ICE candidates to see what's being tried
-// this.peerConnection.onicecandidate = (event) => {
-//     if (event.candidate) {
-//         const c = event.candidate;
-//         console.log('🧊 ICE Candidate Type:', c.type, 'Protocol:', c.protocol, 'Address:', c.address);
-        
-//         // Send to broadcaster
-//         this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
-//             candidate: c.toJSON(),
-//             from: this.peerId,
-//             to: this.broadcasterId,
-//             timestamp: Date.now()
-//         });
-//     }
-// };
-//             console.log(`🔍 Connection health - State: ${connectionState}, ICE: ${iceState}`);
-
-this.peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-        const c = event.candidate;
-        console.log('🧊 ICE Candidate generated:', c);
-
-        // ✅ Ensure broadcasterId is already set when offer is received
-        this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
-            candidate: c.toJSON(),
-            from: this.peerId,           // viewer ID
-            to: this.broadcasterId || '', // broadcaster ID (set earlier from data.from)
-            timestamp: Date.now()
-        });
-    } else {
-        console.log("🧊 ICE gathering complete (no more candidates).");
-    }
-};
-
+            
+            // Removed redundant ICE handler assignments
 
             // Check if we need to restart the connection
             if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {
@@ -160,76 +102,6 @@ this.peerConnection.onicecandidate = (event) => {
         } catch (error) {
             console.error('❌ Error checking connection health:', error);
         }
-    }
-
-    handleNetworkChange(event) {
-        const isOnline = navigator.onLine;
-        console.log(`🌐 Network status changed: ${isOnline ? 'Online' : 'Offline'}`);
-        
-        if (isOnline) {
-            this.updateStatus('reconnecting', 'Network restored, reconnecting...');
-            this.reconnectAttempts = 0; // Reset reconnection attempts
-            this.handleDisconnection();
-        } else {
-            this.updateStatus('error', 'Network connection lost. Waiting for connection...');
-        }
-    }
-
-    async attemptReconnect() {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            this.reconnectAttempts = 0; // Reset after max attempts
-        }
-        await this.handleDisconnection();
-    }
-
-    async initializeTurnServers() {
-        console.log('🔄 Initializing TURN servers...');
-        // Public TURN/STUN servers with fallbacks
-        const turnServers = [
-            // Google's public STUN servers
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            
-            // Additional public STUN servers
-            { urls: 'stun:stun.stunprotocol.org:3478' },
-            { urls: 'stun:stun.voipstunt.com:3478' },
-            { urls: 'stun:stun.ekiga.net' },
-            { urls: 'stun:stun.ideasip.com' },
-            
-            // TURN servers (for NAT traversal)
-            {
-                urls: [
-                    'turn:numb.viagenie.ca:3478?transport=udp',
-                    'turn:numb.viagenie.ca:3478?transport=tcp',
-                    'turns:numb.viagenie.ca:443?transport=tcp'
-                ],
-                username: 'webrtc@live.com',
-                credential: 'muazkh',
-                credentialType: 'password'
-            },
-            {
-                urls: [
-                    'turn:openrelay.metered.ca:80',
-                    'turn:openrelay.metered.ca:443',
-                    'turn:openrelay.metered.ca:443?transport=tcp',
-                    'turns:openrelay.metered.ca:443?transport=tcp'
-                ],
-                username: 'openrelayproject',
-                credential: 'openrelayproject',
-                credentialType: 'password'
-            }
-        ];
-        
-        // Add TURN servers to ICE servers
-        this.peerConnectionConfig.iceServers = [
-            ...this.peerConnectionConfig.iceServers,
-            ...turnServers
-        ];
-        
-        console.log('🔄 Using TURN servers:', turnServers);
     }
 
     async initFirebase() {
@@ -283,8 +155,6 @@ this.peerConnection.onicecandidate = (event) => {
             this.attemptReconnect();
         }
     }
-
-    
 
     async init() {
         try {
@@ -395,8 +265,7 @@ this.peerConnection.onicecandidate = (event) => {
 
     listenForOffers() {
         // Listen for offers
-     //   const offersRef = this.db.ref(`rooms/${this.roomId}/offers`);
-     const offersRef = this.db.ref(`rooms/${this.roomId}/offers/${this.peerId}`);
+        const offersRef = this.db.ref(`rooms/${this.roomId}/offers/${this.peerId}`);
 
         offersRef.on('child_added', async (snapshot) => {
             const data = snapshot.val();
@@ -424,22 +293,7 @@ this.peerConnection.onicecandidate = (event) => {
             // Create a new RTCPeerConnection
             this.peerConnection = new RTCPeerConnection(this.peerConnectionConfig);
             
-            // Enhanced ICE candidate handling
-            this.peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log('ICE Candidate:', event.candidate.candidate);
-                    this.db.ref(`rooms/${this.roomId}/iceCandidates`).push({
-                        candidate: event.candidate.toJSON(),
-                        from: this.peerId,
-                        to: this.broadcasterId,
-                        timestamp: Date.now()
-                    });
-                } else {
-                    console.log('All ICE candidates have been sent');
-                }
-            };
-
-            // Monitor ICE connection state
+            // Set up ICE connection state change handler
             this.peerConnection.oniceconnectionstatechange = () => {
                 const iceState = this.peerConnection.iceConnectionState;
                 console.log('🧊 ICE Connection State:', iceState);
@@ -486,14 +340,6 @@ this.peerConnection.onicecandidate = (event) => {
                 from: this.peerId,
                 to: this.broadcasterId,
                 sdp: answer.sdp
-            });
-
-            // Listen for ICE candidates from broadcaster
-            this.db.ref(`rooms/${this.roomId}/offers/${this.broadcasterId}/ice`).on('child_added', (snapshot) => {
-                const candidate = snapshot.val();
-                if (candidate && candidate.candidate) {
-                    this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate.candidate));
-                }
             });
 
             console.log('Answer created and sent');

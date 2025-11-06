@@ -1,0 +1,38 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "rooms": {
+      "$roomId": {
+        "broadcaster": {
+          ".read": true,
+          ".write": true
+        },
+        "viewers": {
+          "$viewerId": {
+            ".read": true,
+            ".write": true
+          }
+        },
+        "offers": {
+          "$offerId": {
+            ".read": true,
+            ".write": true
+          }
+        },
+        "answers": {
+          "$answerId": {
+            ".read": true,
+            ".write": true
+          }
+        },
+        "iceCandidates": {
+          "$candidateId": {
+            ".read": true,
+            ".write": true
+          }
+        }
+      }
+    }
+  }
+}

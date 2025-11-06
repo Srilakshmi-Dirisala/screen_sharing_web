@@ -77,15 +77,22 @@ class VideoViewer {
         
         if (!this.isConnected) {
             console.log('⚠️ Connection health check: Not connected, checking state...');
-            if (this.peerConnection.connectionState === 'connected') {
+            const conn = this.peerConnection.connectionState;
+            const ice = this.peerConnection.iceConnectionState;
+            // If either state already indicates connected, mark connected and exit
+            if (conn === 'connected' || ice === 'connected') {
                 this.isConnected = true;
-                console.log('✅ Connection is now active');
-                return;
-            } else {
-                console.log('🔄 Attempting to reconnect...');
-                await this.handleDisconnection();
+                console.log('✅ Connection is now active (health check)');
                 return;
             }
+            // If still establishing, do not tear down
+            if (conn === 'connecting' || ice === 'checking' || ice === 'new' || ice === 'gathering') {
+                console.log('⏳ Still establishing (health check), skipping reconnect');
+                return;
+            }
+            console.log('🔄 Attempting to reconnect...');
+            await this.handleDisconnection();
+            return;
         }
 
         try {
@@ -203,6 +210,7 @@ class VideoViewer {
                 
                 switch(this.peerConnection.iceConnectionState) {
                     case 'connected':
+                        this.isConnected = true;
                         this.updateStatus('connected', 'Stream connected');
                         break;
                     case 'disconnected':

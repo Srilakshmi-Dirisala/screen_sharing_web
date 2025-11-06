@@ -28,8 +28,9 @@
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAZdQWP1NVDlkRyXAh9ZorTIbVfshOLo7k",
   authDomain: "data-196c9.firebaseapp.com",
+  databaseURL: "https://data-196c9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "data-196c9",
-  storageBucket: "data-196c9.firebasestorage.app",
+  storageBucket: "data-196c9.appspot.com",
   messagingSenderId: "1047325471659",
   appId: "1:1047325471659:web:a52f980e821c96da0a18ee",
   measurementId: "G-JNPXS8F9QN"
